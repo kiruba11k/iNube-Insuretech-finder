@@ -8,7 +8,7 @@ from typing import Dict, List
 # Page configuration
 st.set_page_config(
     page_title="iNube Solutions Research Agent",
-    page_icon="🔍",
+    page_icon="",
     layout="wide"
 )
 
@@ -137,9 +137,7 @@ def main():
     st.markdown("Analyze companies for potential iNube Solutions service fit")
     
     # Get API key
-    api_key = st.text_input("Groq API Key", type="password", 
-                           help="Get your API key from https://console.groq.com",
-                           key="api_key")
+    api_key = st.secrets.get("GROQ_API_KEY")
     
     if not api_key:
         st.info("Please enter your Groq API key to begin analysis")
