@@ -25,7 +25,7 @@ Provide JSON with: company_name, industry, core_business, technology_stack, iden
         
         try:
             chat_completion = self.client.chat.completions.create(
-                model="mixtral-8x7b-32768",
+                model="openai/gpt-oss-120b",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_query}
