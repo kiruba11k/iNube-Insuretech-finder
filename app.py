@@ -4,16 +4,20 @@ from tavily import TavilyClient
 import pandas as pd
 import json
 from typing import Dict, List, Tuple
+import time
 
 # Page configuration
 st.set_page_config(
     page_title="iNube Solutions Research Agent",
-    page_icon="",
+    page_icon="🔍",
     layout="wide"
 )
 
 class TavilyResearchAgent:
     def __init__(self, api_key: str):
+        if not api_key:
+            st.error("Tavily API key is required")
+            return
         self.client = TavilyClient(api_key=api_key)
         self.iNube_services = {
             "policy_administration": "Modular Policy Administration System for Life, Health, General insurance",
@@ -29,10 +33,11 @@ class TavilyResearchAgent:
         
         # Perform multiple searches for comprehensive research
         search_queries = [
-            f"{company_name} business model services products",
-            f"{company_name} technology stack digital transformation",
-            f"{company_name} insurance operations challenges",
-            f"{company_name} recent news developments 2024",
+            f"{company_name} insurance business model services products",
+            f"{company_name} technology stack digital transformation IT systems",
+            f"{company_name} insurance operations challenges issues",
+            f"{company_name} recent news developments 2024 2025",
+            f"{company_name} financial performance growth strategy",
             "iNube Solutions insurance technology services"
         ]
         
@@ -68,21 +73,25 @@ class TavilyResearchAgent:
                         analysis_data["research_points"].extend(points)
                         
                 # Add the answer if available
-                if response.get('answer'):
+                if response and response.get('answer'):
                     analysis_data["research_points"].append({
                         "point": f"Search analysis: {response['answer']}",
                         "category": "general_analysis",
                         "source_url": f"Query: {query}",
                         "relevance": "high"
                     })
+                
+                # Add delay to avoid rate limiting
+                time.sleep(1)
                         
             except Exception as e:
                 st.error(f"Error in search query '{query}': {str(e)}")
                 continue
         
         # Extract unique sources
-        analysis_data["sources"] = [{"url": r["url"], "title": r["title"]} for r in all_results]
-        analysis_data["sources"] = [dict(t) for t in {tuple(d.items()) for d in analysis_data["sources"]}]
+        if all_results:
+            analysis_data["sources"] = [{"url": r["url"], "title": r["title"]} for r in all_results]
+            analysis_data["sources"] = [dict(t) for t in {tuple(d.items()) for d in analysis_data["sources"]}]
         
         return analysis_data, all_results
     
@@ -95,11 +104,12 @@ class TavilyResearchAgent:
         
         # Define categories and keywords to look for
         categories = {
-            "business_model": ["services", "products", "business model", "offering", "solutions"],
-            "technology": ["technology", "digital", "software", "platform", "AI", "automation"],
-            "challenges": ["challenge", "problem", "issue", "limitation", "gap"],
-            "operations": ["operations", "process", "workflow", "efficiency", "cost"],
-            "growth": ["growth", "expansion", "market", "customer", "revenue"]
+            "business_model": ["services", "products", "business model", "offering", "solutions", "revenue"],
+            "technology": ["technology", "digital", "software", "platform", "AI", "automation", "cloud", "IT"],
+            "challenges": ["challenge", "problem", "issue", "limitation", "gap", "difficulty", "bottleneck"],
+            "operations": ["operations", "process", "workflow", "efficiency", "cost", "manual", "legacy"],
+            "growth": ["growth", "expansion", "market", "customer", "revenue", "premium", "profit"],
+            "insurance": ["insurance", "policy", "claim", "underwriting", "premium", "risk", "coverage"]
         }
         
         # Convert content to lowercase for matching
@@ -114,9 +124,10 @@ class TavilyResearchAgent:
                     context = content[start_idx:end_idx].strip()
                     
                     points.append({
-                        "point": f"{title}: {context}",
+                        "point": f"{context}",
                         "category": category,
                         "source_url": url,
+                        "source_title": title,
                         "relevance": "medium"
                     })
                     break  # One point per category per source
@@ -137,19 +148,19 @@ class TavilyResearchAgent:
             "fit_justification": "",
             "recommendation": "",
             "confidence_score": 0,
-            "sources": research_data["sources"]
+            "sources": research_data.get("sources", [])
         }
         
         # Analyze research points to populate the analysis
-        tech_keywords = ["legacy", "modernization", "digital", "automation", "AI", "cloud"]
-        challenge_keywords = ["cost", "efficiency", "manual", "slow", "integration", "compliance"]
-        insurance_keywords = ["policy", "claim", "underwriting", "premium", "insurance", "risk"]
+        tech_keywords = ["legacy", "modernization", "digital", "automation", "AI", "cloud", "technology", "software"]
+        challenge_keywords = ["cost", "efficiency", "manual", "slow", "integration", "compliance", "challenge", "problem"]
+        insurance_keywords = ["policy", "claim", "underwriting", "premium", "insurance", "risk", "coverage"]
         
         tech_count = 0
         challenge_count = 0
         insurance_count = 0
         
-        for point in research_data["research_points"]:
+        for point in research_data.get("research_points", []):
             point_text = point["point"].lower()
             
             # Check for insurance industry
@@ -160,12 +171,14 @@ class TavilyResearchAgent:
             # Check for technology mentions
             if any(keyword in point_text for keyword in tech_keywords):
                 tech_count += 1
-                analysis["technology_stack"].append(point["point"])
+                if point["point"] not in analysis["technology_stack"]:
+                    analysis["technology_stack"].append(point["point"])
             
             # Check for challenges
             if any(keyword in point_text for keyword in challenge_keywords):
                 challenge_count += 1
-                analysis["identified_challenges"].append(point["point"])
+                if point["point"] not in analysis["identified_challenges"]:
+                    analysis["identified_challenges"].append(point["point"])
         
         # Determine digital maturity based on technology mentions
         if tech_count > 5:
@@ -175,14 +188,15 @@ class TavilyResearchAgent:
         else:
             analysis["digital_maturity"] = "low"
         
-        # Determine potential iNube services based on challenges
-        if challenge_count > 0:
-            analysis["potential_iNube_services"] = list(self.iNube_services.keys())[:3]
+        # Determine potential iNube services based on challenges and technology gaps
+        if challenge_count > 0 or tech_count < 3:
+            # Select relevant services based on identified gaps
+            analysis["potential_iNube_services"] = list(self.iNube_services.keys())[:4]
         
         # Calculate confidence score
-        total_points = len(research_data["research_points"])
+        total_points = len(research_data.get("research_points", []))
         if total_points > 0:
-            analysis["confidence_score"] = min(100, (insurance_count + tech_count + challenge_count) * 10)
+            analysis["confidence_score"] = min(100, (insurance_count + min(tech_count, 5) + min(challenge_count, 5)) * 10)
         
         # Generate justification and recommendation
         analysis["fit_justification"] = self._generate_justification(analysis, research_data)
@@ -231,18 +245,36 @@ def main():
     # Sidebar configuration
     with st.sidebar:
         st.header("Configuration")
-        api_key = st.secrets.get("TAVILY")
+        
+        # Get API key from secrets or user input
+        api_key = st.secrets.get("TAVILY_API_KEY", None)
+        
+        if not api_key:
+            st.warning("Tavily API key not found in secrets. Please enter it below:")
+            api_key = st.text_input("Tavily API Key", type="password", 
+                                   help="Get your API key from https://tavily.com")
+        else:
+            st.success("Tavily API key loaded from secrets")
+        
         st.markdown("---")
         st.markdown("**How to use:**")
-        st.markdown("1. Enter Tavily API key")
+        st.markdown("1. Ensure Tavily API key is set")
         st.markdown("2. Input company details")
         st.markdown("3. Click Research Company")
         st.markdown("4. Review detailed analysis with sources")
         
         st.markdown("---")
         st.markdown("**iNube Solutions Services:**")
-        for service, desc in TavilyResearchAgent("").iNube_services.items():
-            st.markdown(f"- {service.replace('_', ' ').title()}")
+        iNube_services = {
+            "policy_administration": "Modular Policy Administration System",
+            "claims_management": "AI-powered claims processing with fraud detection",
+            "digital_distribution": "Digital onboarding and distribution platforms",
+            "ai_analytics": "AI and predictive analytics for insurance operations",
+            "field_operations": "Mobility suite for field operations",
+            "embedded_insurance": "API-first platforms for embedded insurance"
+        }
+        for service, desc in iNube_services.items():
+            st.markdown(f"- **{service.replace('_', ' ').title()}**: {desc}")
     
     # Main input section
     col1, col2 = st.columns([1, 1])
@@ -268,23 +300,29 @@ def main():
         - Insurance industry focus
         - Potential iNube Solutions fit
         """)
+        
+        st.info("Note: Research may take 2-3 minutes to complete as it performs multiple searches for comprehensive analysis.")
     
     if not api_key:
-        st.info("Please enter your Tavily API key to begin research")
+        st.error("Please provide a Tavily API key to begin research")
         return
     
     # Initialize research agent
-    agent = TavilyResearchAgent(api_key)
+    try:
+        agent = TavilyResearchAgent(api_key)
+    except Exception as e:
+        st.error(f"Failed to initialize Tavily client: {str(e)}")
+        return
     
     if research_button and company_name:
-        with st.spinner(f"Researching {company_name} using Tavily Search API..."):
+        with st.spinner(f"Researching {company_name} using Tavily Search API... This may take 2-3 minutes."):
             research_data, detailed_results = agent.research_company(company_name, company_url)
             analysis = agent.analyze_company_fit(research_data)
         
-        if analysis:
+        if analysis and research_data.get("research_points"):
             display_comprehensive_analysis(analysis, detailed_results, agent)
         else:
-            st.error("Research failed. Please check your API key and try again.")
+            st.error("Research failed or no data found. Please check the company name and try again.")
 
 def display_comprehensive_analysis(analysis: Dict, detailed_results: List[Dict], agent: TavilyResearchAgent):
     """Display comprehensive analysis with sources"""
@@ -303,12 +341,13 @@ def display_comprehensive_analysis(analysis: Dict, detailed_results: List[Dict],
     with col3:
         st.metric("Confidence Score", f"{analysis.get('confidence_score', 0)}%")
     with col4:
-        st.metric("Sources Used", len(analysis.get('sources', [])))
+        services_count = len(analysis.get('potential_iNube_services', []))
+        st.metric("Recommended Services", services_count)
     
     # Research Findings Table
-    st.subheader("Detailed Research Findings")
-    
     if detailed_results:
+        st.subheader("Detailed Research Findings")
+        
         # Create research findings table
         research_table_data = []
         for result in detailed_results:
@@ -322,7 +361,7 @@ def display_comprehensive_analysis(analysis: Dict, detailed_results: List[Dict],
         research_df = pd.DataFrame(research_table_data)
         st.dataframe(research_df, use_container_width=True)
     
-    # Analysis Results
+    # Analysis Results Table
     st.subheader("iNube Solutions Fit Analysis")
     
     analysis_table_data = []
@@ -332,14 +371,14 @@ def display_comprehensive_analysis(analysis: Dict, detailed_results: List[Dict],
         "Category": "Company Information",
         "Aspect": "Company Name",
         "Finding": analysis['company_name'],
-        "Source URL": analysis['company_url'],
+        "Source URL": analysis.get('company_url', 'N/A'),
         "Relevance": "High"
     })
     
     analysis_table_data.append({
         "Category": "Company Information",
         "Aspect": "Industry",
-        "Finding": analysis['industry'],
+        "Finding": analysis.get('industry', 'Unknown'),
         "Source URL": "Multiple sources",
         "Relevance": "High"
     })
@@ -347,40 +386,48 @@ def display_comprehensive_analysis(analysis: Dict, detailed_results: List[Dict],
     analysis_table_data.append({
         "Category": "Company Information", 
         "Aspect": "Digital Maturity",
-        "Finding": analysis['digital_maturity'].title(),
+        "Finding": analysis.get('digital_maturity', 'unknown').title(),
         "Source URL": "Technology analysis",
+        "Relevance": "High"
+    })
+    
+    analysis_table_data.append({
+        "Category": "Company Information", 
+        "Aspect": "Confidence Score",
+        "Finding": f"{analysis.get('confidence_score', 0)}%",
+        "Source URL": "Analysis metrics",
         "Relevance": "High"
     })
     
     # Core Business (from research points)
     business_points = [p for p in analysis.get('research_points', []) if p.get('category') == 'business_model']
-    for i, point in enumerate(business_points[:3]):
+    for i, point in enumerate(business_points[:5]):
         analysis_table_data.append({
             "Category": "Core Business",
             "Aspect": f"Business Area {i+1}",
-            "Finding": point['point'][:150] + "..." if len(point['point']) > 150 else point['point'],
+            "Finding": point['point'][:200] + "..." if len(point['point']) > 200 else point['point'],
             "Source URL": point['source_url'],
             "Relevance": point['relevance'].title()
         })
     
     # Technology Stack
     tech_points = [p for p in analysis.get('research_points', []) if p.get('category') == 'technology']
-    for i, point in enumerate(tech_points[:3]):
+    for i, point in enumerate(tech_points[:5]):
         analysis_table_data.append({
             "Category": "Technology Stack",
             "Aspect": f"Technology {i+1}",
-            "Finding": point['point'][:150] + "..." if len(point['point']) > 150 else point['point'],
+            "Finding": point['point'][:200] + "..." if len(point['point']) > 200 else point['point'],
             "Source URL": point['source_url'],
             "Relevance": point['relevance'].title()
         })
     
     # Identified Challenges
     challenge_points = [p for p in analysis.get('research_points', []) if p.get('category') == 'challenges']
-    for i, point in enumerate(challenge_points[:3]):
+    for i, point in enumerate(challenge_points[:5]):
         analysis_table_data.append({
             "Category": "Identified Challenges",
             "Aspect": f"Challenge {i+1}",
-            "Finding": point['point'][:150] + "..." if len(point['point']) > 150 else point['point'],
+            "Finding": point['point'][:200] + "..." if len(point['point']) > 200 else point['point'],
             "Source URL": point['source_url'],
             "Relevance": point['relevance'].title()
         })
@@ -410,7 +457,13 @@ def display_comprehensive_analysis(analysis: Dict, detailed_results: List[Dict],
     
     with col2:
         st.markdown("**Final Recommendation:**")
-        st.success(analysis.get('recommendation', 'No recommendation available'))
+        recommendation = analysis.get('recommendation', 'No recommendation available')
+        if "STRONG" in recommendation:
+            st.success(recommendation)
+        elif "MODERATE" in recommendation:
+            st.warning(recommendation)
+        else:
+            st.error(recommendation)
     
     # Source URLs
     st.subheader("Research Sources")
