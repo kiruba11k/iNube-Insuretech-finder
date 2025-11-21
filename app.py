@@ -8,7 +8,7 @@ from typing import Dict, List, Tuple
 # Page configuration
 st.set_page_config(
     page_title="iNube Solutions Research Agent",
-    page_icon="🔍",
+    page_icon="",
     layout="wide"
 )
 
@@ -231,8 +231,7 @@ def main():
     # Sidebar configuration
     with st.sidebar:
         st.header("Configuration")
-        api_key = st.text_input("Tavily API Key", type="password", 
-                               help="Get your API key from https://tavily.com")
+        api_key = st.secrets.get("TAVILY")
         st.markdown("---")
         st.markdown("**How to use:**")
         st.markdown("1. Enter Tavily API key")
