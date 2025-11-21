@@ -9,7 +9,7 @@ import time
 # Page configuration
 st.set_page_config(
     page_title="iNube Solutions Research Agent",
-    page_icon="🔍",
+    page_icon="",
     layout="wide"
 )
 
@@ -247,7 +247,7 @@ def main():
         st.header("Configuration")
         
         # Get API key from secrets or user input
-        api_key = st.secrets.get("TAVILY_API_KEY", None)
+        api_key = st.secrets.get("TAVILY", None)
         
         if not api_key:
             st.warning("Tavily API key not found in secrets. Please enter it below:")
