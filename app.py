@@ -253,10 +253,10 @@ class TavilyResearchAgent:
         """Generate direct analysis based on source URLs and content"""
         
         if not pain_point_groups:
-            return "❌ **No direct evidence found** in recent sources that matches iNube Solutions capabilities."
+            return " **No direct evidence found** in recent sources that matches iNube Solutions capabilities."
         
         analysis_lines = []
-        analysis_lines.append("### 🔍 Direct Source Analysis")
+        analysis_lines.append("###  Direct Source Analysis")
         analysis_lines.append("**Based on analyzing recent source URLs and content:**\n")
         
         # Analyze each pain point group with specific evidence
@@ -264,7 +264,7 @@ class TavilyResearchAgent:
             pain_point_name = pain_point_id.replace('_', ' ').title()
             solution_desc = self.pain_points_mapping[pain_point_id]["solution_description"]
             
-            analysis_lines.append(f"**🎯 {pain_point_name}**")
+            analysis_lines.append(f"** {pain_point_name}**")
             analysis_lines.append(f"   - *iNube Solution*: {solution_desc}")
             analysis_lines.append(f"   - *Evidence Found*: {len(evidences)} sources")
             
@@ -300,19 +300,19 @@ class TavilyResearchAgent:
         
         # Direct recommendation logic based on source analysis
         if unique_pain_points >= 4 and total_evidence_count >= 6:
-            return f"🎯 **STRONG iNUBE FIT** - {unique_pain_points} major pain points identified with {total_evidence_count} evidence sources. {unique_solution_count} iNube solutions directly address these challenges."
+            return f" **STRONG iNUBE FIT** - {unique_pain_points} major pain points identified with {total_evidence_count} evidence sources. {unique_solution_count} iNube solutions directly address these challenges."
         
         elif unique_pain_points >= 3 and total_evidence_count >= 4:
-            return f"✅ **SOLID iNUBE OPPORTUNITY** - {unique_pain_points} key pain points found with {total_evidence_count} sources. {unique_solution_count} iNube solutions provide direct solutions."
+            return f" **SOLID iNUBE OPPORTUNITY** - {unique_pain_points} key pain points found with {total_evidence_count} sources. {unique_solution_count} iNube solutions provide direct solutions."
         
         elif unique_pain_points >= 2 and total_evidence_count >= 2:
-            return f"⚠️ **MODERATE iNUBE POTENTIAL** - {unique_pain_points} pain points identified with limited evidence. {unique_solution_count} iNube solutions could address these areas."
+            return f" **MODERATE iNUBE POTENTIAL** - {unique_pain_points} pain points identified with limited evidence. {unique_solution_count} iNube solutions could address these areas."
         
         elif unique_pain_points >= 1:
-            return f"🔍 **WEAK iNUBE MATCH** - Only {unique_pain_points} pain point identified with minimal evidence. Limited scope for iNube solutions."
+            return f" **WEAK iNUBE MATCH** - Only {unique_pain_points} pain point identified with minimal evidence. Limited scope for iNube solutions."
         
         else:
-            return "❌ **NO VIABLE iNUBE PROSPECT** - Sources analyzed but no clear alignment with iNube solution capabilities."
+            return " **NO VIABLE iNUBE PROSPECT** - Sources analyzed but no clear alignment with iNube solution capabilities."
     
     def _generate_pain_point_analysis(self, pain_point_groups: Dict, recent_source_count: int) -> str:
         """Generate pain point analysis focusing on recent evidence"""
@@ -320,7 +320,7 @@ class TavilyResearchAgent:
             return "No recent pain points identified from May 2025 to present."
         
         analysis_lines = []
-        analysis_lines.append("### 📊 Recent Pain Points Identified (May 2025 - Present)")
+        analysis_lines.append("###  Recent Pain Points Identified (May 2025 - Present)")
         analysis_lines.append(f"**Analysis based on {recent_source_count} recent sources:**\n")
         
         for pain_point_id, evidences in pain_point_groups.items():
@@ -350,7 +350,7 @@ class TavilyResearchAgent:
         solution_names = [s.replace('_', ' ').title() for s in all_solutions]
         
         alignment_lines = []
-        alignment_lines.append("### 🚀 iNube Solutions Alignment")
+        alignment_lines.append("###  iNube Solutions Alignment")
         alignment_lines.append(f"**Solutions Recommended**: {', '.join(solution_names)}\n")
         
         alignment_lines.append("**Direct Solution Mapping**:")
@@ -375,7 +375,7 @@ class TavilyResearchAgent:
             all_solutions.update(self.pain_points_mapping[pain_point_id]["iNube_solutions"])
         
         summary_lines = []
-        summary_lines.append("### 📈 Direct Analysis Summary")
+        summary_lines.append("###  Direct Analysis Summary")
         summary_lines.append(f"- **Company**: {analysis['company_name']}")
         summary_lines.append(f"- **Timeframe**: {analysis.get('timeframe_analysis', '')}")
         summary_lines.append(f"- **Recent Sources Analyzed**: {analysis.get('recent_evidence_count', 0)}")
@@ -516,7 +516,7 @@ def display_client_analysis(analysis: Dict, research_data: Dict, agent: TavilyRe
         st.markdown(analysis['client_potential_summary'])
     
     with col4:
-        st.subheader("🎯 Final Recommendation")
+        st.subheader(" Final Recommendation")
         recommendation = analysis.get('recommendation', 'No recommendation available')
         
         if "STRONG iNUBE FIT" in recommendation:
@@ -537,7 +537,7 @@ def display_client_analysis(analysis: Dict, research_data: Dict, agent: TavilyRe
     
     # Detailed Evidence Sources with direct analysis
     st.markdown("---")
-    st.subheader("📋 Recent Evidence Sources (May 2025+)")
+    st.subheader(" Recent Evidence Sources (May 2025+)")
     
     relevant_sources = analysis.get("relevant_sources", [])
     if relevant_sources:
@@ -565,7 +565,7 @@ def display_client_analysis(analysis: Dict, research_data: Dict, agent: TavilyRe
         st.dataframe(source_df, use_container_width=True, hide_index=True)
         
         # Show detailed evidence for each pain point
-        st.subheader("🔍 Detailed Pain Point Evidence (Direct Analysis)")
+        st.subheader(" Detailed Pain Point Evidence (Direct Analysis)")
         pain_points = analysis.get("validated_pain_points", [])
         pain_point_groups = {}
         
@@ -575,7 +575,7 @@ def display_client_analysis(analysis: Dict, research_data: Dict, agent: TavilyRe
             pain_point_groups[pp["pain_point_id"]].append(pp)
         
         for pain_point_id, evidences in pain_point_groups.items():
-            with st.expander(f"🎯 {pain_point_id.replace('_', ' ').title()} - {len(evidences)} direct evidence sources"):
+            with st.expander(f" {pain_point_id.replace('_', ' ').title()} - {len(evidences)} direct evidence sources"):
                 for i, evidence in enumerate(evidences):
                     st.markdown(f"**Evidence {i+1}**")
                     st.markdown(f"**Source**: {evidence['source_title']}")
@@ -588,7 +588,7 @@ def display_client_analysis(analysis: Dict, research_data: Dict, agent: TavilyRe
     
     # Export functionality
     st.markdown("---")
-    st.subheader("📤 Export Direct Analysis")
+    st.subheader(" Export Direct Analysis")
     
     if st.button("Generate Direct Analysis Report"):
         generate_direct_analysis_report(analysis, research_data)
