@@ -9,7 +9,7 @@ from datetime import datetime
 
 # Page configuration
 st.set_page_config(
-    page_title="iNube Solutions Pain Point Research Agent",
+    page_title="iNube Solutions - Recent Pain Point Analysis",
     page_icon="",
     layout="wide"
 )
@@ -29,7 +29,7 @@ class TavilyResearchAgent:
             "embedded_insurance": "API-first platforms for embedded insurance partnerships"
         }
         
-        # Enhanced pain points mapping with specific keywords for better detection
+        # Pain points mapping focused on current insurance challenges
         self.pain_points_mapping = {
             "legacy_systems": {
                 "keywords": ["legacy system", "outdated technology", "old software", "system modernization", 
@@ -68,19 +68,23 @@ class TavilyResearchAgent:
             }
         }
     
-    def research_company(self, company_name: str, company_url: str, include_recent_sources: bool = False) -> Tuple[Dict, List[Dict]]:
-        """Research company using Tavily Search API with focus on pain points"""
+    def research_company(self, company_name: str, company_url: str) -> Tuple[Dict, List[Dict]]:
+        """Research company using Tavily Search API focusing ONLY on recent pain points (May 2025 to present)"""
         
-        # Base search queries
-        base_queries = [
-            f"{company_name} challenges problems issues difficulties",
-            f"{company_name} digital transformation legacy systems modernization",
-            f"{company_name} operational efficiency cost reduction manual processes",
-            f"{company_name} customer experience policyholder satisfaction churn",
-            f"{company_name} claims processing fraud detection technology gaps",
-            f"{company_name} technology stack IT systems software platforms",
-            f"{company_name} financial results operational performance investor presentation",
-            f"{company_name} news updates recent developments technology initiatives"
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        
+        # Search queries focused on recent challenges (May 2025 to present)
+        recent_queries = [
+            f"{company_name} challenges problems issues difficulties 2025",
+            f"{company_name} digital transformation legacy systems modernization 2025",
+            f"{company_name} operational efficiency cost reduction manual processes 2025",
+            f"{company_name} customer experience policyholder satisfaction churn 2025",
+            f"{company_name} claims processing fraud detection technology gaps 2025",
+            f"{company_name} technology stack IT systems software platforms 2025",
+            f"{company_name} financial results operational performance 2025",
+            f"{company_name} news updates recent developments technology initiatives 2025",
+            f"{company_name} insurance industry challenges 2025",
+            f"{company_name} business transformation technology investment 2025"
         ]
         
         all_results = []
@@ -90,17 +94,19 @@ class TavilyResearchAgent:
             "sources": [],
             "research_points": [],
             "identified_pain_points": [],
-            "recent_sources": []  # Sources from May 2025 to present
+            "recent_sources": []
         }
         
-        # First, do general searches without date restriction
-        for query in base_queries:
+        for query in recent_queries:
             try:
                 response = self.client.search(
                     query=query,
                     search_depth="advanced",
-                    max_results=3,  # Reduced to allow for recent source searches
-                    include_answer=True
+                    max_results=5,
+                    include_answer=True,
+                    # ONLY search from May 2025 to present
+                    start_date="2025-05-01",
+                    end_date=current_date
                 )
                 
                 if response and 'results' in response:
@@ -110,80 +116,30 @@ class TavilyResearchAgent:
                             "url": result.get('url', ''),
                             "content": result.get('content', ''),
                             "query": query,
-                            "time_period": "General"
+                            "time_period": f"May 2025 - {datetime.now().strftime('%b %Y')}"
                         }
                         all_results.append(source_info)
+                        analysis_data["recent_sources"].append({
+                            "title": result.get('title', ''),
+                            "url": result.get('url', ''),
+                            "content": result.get('content', '')[:500] + "..." if len(result.get('content', '')) > 500 else result.get('content', ''),
+                            "query": query
+                        })
                         
                         points = self._extract_key_points(result, query)
                         analysis_data["research_points"].extend(points)
                         
                         pain_points = self._extract_pain_points(result, query)
                         analysis_data["identified_pain_points"].extend(pain_points)
-                
-                time.sleep(1)
-                        
+                    
+                    time.sleep(1)
+                            
             except Exception as e:
                 st.error(f"Error in search query '{query}': {str(e)}")
                 continue
         
-        # Then, do recent source searches (May 2025 to present) if requested
-        if include_recent_sources:
-            current_date = datetime.now().strftime("%Y-%m-%d")
-            recent_queries = [
-                f"{company_name} challenges 2025",
-                f"{company_name} technology issues 2025", 
-                f"{company_name} digital transformation 2025",
-                f"{company_name} operational efficiency 2025",
-                f"{company_name} customer experience 2025",
-                f"{company_name} insurance challenges 2025",
-                f"{company_name} business problems 2025",
-                f"{company_name} IT systems issues 2025"
-            ]
-            
-            for query in recent_queries:
-                try:
-                    response = self.client.search(
-                        query=query,
-                        search_depth="advanced",
-                        max_results=3,
-                        include_answer=True,
-                        # Set date range from May 2025 to current date
-                        start_date="2025-05-01",
-                        end_date=current_date
-                    )
-                    
-                    if response and 'results' in response:
-                        for result in response['results']:
-                            source_info = {
-                                "title": result.get('title', ''),
-                                "url": result.get('url', ''),
-                                "content": result.get('content', ''),
-                                "query": query,
-                                "time_period": f"Recent (May 2025 - {datetime.now().strftime('%b %Y')})"
-                            }
-                            all_results.append(source_info)
-                            analysis_data["recent_sources"].append({
-                                "title": result.get('title', ''),
-                                "url": result.get('url', ''),
-                                "content": result.get('content', '')[:500] + "..." if len(result.get('content', '')) > 500 else result.get('content', ''),
-                                "query": query,
-                                "date_range": f"May 2025 - {datetime.now().strftime('%b %Y')}"
-                            })
-                            
-                            points = self._extract_key_points(result, query)
-                            analysis_data["research_points"].extend(points)
-                            
-                            pain_points = self._extract_pain_points(result, query)
-                            analysis_data["identified_pain_points"].extend(pain_points)
-                    
-                    time.sleep(1)
-                            
-                except Exception as e:
-                    st.error(f"Error in recent source search query '{query}': {str(e)}")
-                    continue
-        
         if all_results:
-            analysis_data["sources"] = [{"url": r["url"], "title": r["title"], "time_period": r.get("time_period", "General")} for r in all_results]
+            analysis_data["sources"] = [{"url": r["url"], "title": r["title"]} for r in all_results]
             analysis_data["sources"] = [dict(t) for t in {tuple(d.items()) for d in analysis_data["sources"]}]
         
         return analysis_data, all_results
@@ -213,8 +169,7 @@ class TavilyResearchAgent:
                             "source_title": title,
                             "keyword_found": keyword,
                             "iNube_solutions": pain_point_data["iNube_solutions"],
-                            "confidence": "high" if len(context) > 100 else "medium",
-                            "time_period": "Recent" if "2025" in query else "General"
+                            "confidence": "high" if len(context) > 100 else "medium"
                         })
                     break
         
@@ -232,7 +187,6 @@ class TavilyResearchAgent:
             "technology": ["technology", "digital", "software", "platform", "AI", "automation", "cloud", "IT"],
             "challenges": ["challenge", "problem", "issue", "limitation", "gap", "difficulty", "bottleneck"],
             "operations": ["operations", "process", "workflow", "efficiency", "cost", "manual", "legacy"],
-            "growth": ["growth", "expansion", "market", "customer", "revenue", "premium", "profit"],
             "insurance": ["insurance", "policy", "claim", "underwriting", "premium", "risk", "coverage"]
         }
         
@@ -250,222 +204,140 @@ class TavilyResearchAgent:
                         "category": category,
                         "source_url": url,
                         "source_title": title,
-                        "relevance": "medium",
-                        "time_period": "Recent" if "2025" in query else "General"
+                        "relevance": "medium"
                     })
                     break
         
         return points
     
     def analyze_company_fit(self, research_data: Dict) -> Dict:
-        """Analyze company fit for iNube Solutions with focus on pain points"""
+        """Analyze company fit for iNube Solutions focusing ONLY on recent pain points"""
         
         analysis = {
             "company_name": research_data["company_name"],
             "industry": "Unknown",
-            "core_business": [],
-            "technology_stack": [],
-            "identified_challenges": [],
             "validated_pain_points": research_data.get("identified_pain_points", []),
-            "digital_maturity": "unknown",
             "potential_iNube_services": [],
-            "fit_justification": "",
+            "client_potential_summary": "",
             "recommendation": "",
             "confidence_score": 0,
             "sources": research_data.get("sources", []),
-            "pain_point_analysis": "",
-            "client_potential_summary": "",
             "recent_sources": research_data.get("recent_sources", [])
         }
         
         pain_point_count = len(analysis["validated_pain_points"])
-        unique_pain_points = set([pp["pain_point_id"] for pp in analysis["validated_pain_points"]])
         
-        tech_keywords = ["legacy", "modernization", "digital", "automation", "AI", "cloud", "technology", "software"]
-        challenge_keywords = ["cost", "efficiency", "manual", "slow", "integration", "compliance", "challenge", "problem"]
-        insurance_keywords = ["policy", "claim", "underwriting", "premium", "insurance", "risk", "coverage"]
-        
-        tech_count = 0
-        challenge_count = 0
-        insurance_count = 0
+        # Check for insurance industry indicators
+        insurance_keywords = ["insurance", "policy", "claim", "underwriting", "premium", "risk", "coverage"]
+        insurance_mentions = 0
         
         for point in research_data.get("research_points", []):
             point_text = point["point"].lower()
-            
             if any(keyword in point_text for keyword in insurance_keywords):
-                insurance_count += 1
+                insurance_mentions += 1
                 analysis["industry"] = "Insurance"
-            
-            if any(keyword in point_text for keyword in tech_keywords):
-                tech_count += 1
-                if point["point"] not in analysis["technology_stack"]:
-                    analysis["technology_stack"].append(point["point"])
-            
-            if any(keyword in point_text for keyword in challenge_keywords):
-                challenge_count += 1
-                if point["point"] not in analysis["identified_challenges"]:
-                    analysis["identified_challenges"].append(point["point"])
         
-        if tech_count > 5:
-            analysis["digital_maturity"] = "high"
-        elif tech_count > 2:
-            analysis["digital_maturity"] = "medium"
-        else:
-            analysis["digital_maturity"] = "low"
-        
+        # Determine potential iNube services based on validated pain points
         all_recommended_services = []
         for pain_point in analysis["validated_pain_points"]:
             all_recommended_services.extend(pain_point["iNube_solutions"])
         
-        analysis["potential_iNube_services"] = list(set(all_recommended_services))[:6]
+        analysis["potential_iNube_services"] = list(set(all_recommended_services))
         
-        if not analysis["potential_iNube_services"] and (challenge_count > 0 or tech_count < 3):
-            analysis["potential_iNube_services"] = list(self.iNube_services.keys())[:3]
+        # Calculate confidence score based on recent pain points
+        pain_point_score = min(80, pain_point_count * 20)
+        industry_score = 20 if analysis["industry"] == "Insurance" else 0
+        analysis["confidence_score"] = min(100, pain_point_score + industry_score)
         
-        pain_point_score = min(50, pain_point_count * 15)
-        tech_score = min(25, tech_count * 5)
-        challenge_score = min(25, challenge_count * 5)
-        
-        analysis["confidence_score"] = min(100, pain_point_score + tech_score + challenge_score)
-        
-        analysis["pain_point_analysis"] = self._generate_pain_point_analysis(analysis)
+        # Generate client potential summary
         analysis["client_potential_summary"] = self._generate_client_potential_summary(analysis)
-        analysis["fit_justification"] = self._generate_justification(analysis, research_data)
         analysis["recommendation"] = self._generate_recommendation(analysis)
         
         return analysis
     
     def _generate_client_potential_summary(self, analysis: Dict) -> str:
-        """Generate comprehensive client potential summary based on pain points"""
+        """Generate comprehensive client potential summary based on recent pain points"""
         pain_points = analysis.get("validated_pain_points", [])
+        recent_sources_count = len(analysis.get("recent_sources", []))
         
         if not pain_points:
-            return "Limited client potential identified. No validated pain points with source evidence found."
+            return f"Limited client potential identified. No recent pain points found from May 2025 to present. Searched {recent_sources_count} recent sources."
         
-        # Group pain points by category and time period
+        # Group pain points by category
         pain_point_groups = {}
-        recent_count = 0
-        
         for pp in pain_points:
             if pp["pain_point_id"] not in pain_point_groups:
                 pain_point_groups[pp["pain_point_id"]] = []
             pain_point_groups[pp["pain_point_id"]].append(pp)
-            
-            if pp.get("time_period") == "Recent":
-                recent_count += 1
         
+        current_month_year = datetime.now().strftime("%B %Y")
         summary_parts = []
-        summary_parts.append(f"Based on our research, {analysis['company_name']} demonstrates strong client potential for iNube Solutions due to validated business challenges across {len(pain_point_groups)} key areas.")
         
-        # Highlight recent findings if available
-        if recent_count > 0:
-            current_month_year = datetime.now().strftime("%B %Y")
-            summary_parts.append(f" Found {recent_count} recent pain point evidence sources from May 2025 to {current_month_year}.")
+        summary_parts.append(f"## Client Potential Analysis: {analysis['company_name']}")
+        summary_parts.append(f"**Timeframe**: May 2025 - {current_month_year}")
+        summary_parts.append(f"**Sources Analyzed**: {recent_sources_count} recent sources")
+        summary_parts.append("")
         
-        # Add pain point specific summaries
+        summary_parts.append("### 🎯 Recent Pain Points Identified")
+        summary_parts.append(f"Found {len(pain_points)} validated pain points across {len(pain_point_groups)} key areas:")
+        
         for pain_point_id, evidences in pain_point_groups.items():
             pain_point_name = pain_point_id.replace('_', ' ').title()
             source_count = len(evidences)
-            recent_sources = [ev for ev in evidences if ev.get('time_period') == 'Recent']
-            recent_indicator = " (Recent)" if recent_sources else ""
             
-            sources_links = ", ".join([f"[Source {i+1}]({ev['source_url']})" for i, ev in enumerate(evidences[:2])])
+            # Get source URLs for this pain point
+            source_links = []
+            for i, evidence in enumerate(evidences[:3]):  # Show max 3 sources per pain point
+                source_links.append(f"[Source {i+1}]({evidence['source_url']})")
             
-            summary_parts.append(f"\n- **{pain_point_name}**: {source_count} validated evidence sources{recent_indicator} ({sources_links})")
+            sources_text = ", ".join(source_links)
+            summary_parts.append(f"- **{pain_point_name}**: {source_count} evidence sources ({sources_text})")
         
-        # Add iNube solutions match
+        summary_parts.append("")
+        summary_parts.append("### 🔧 iNube Solutions Alignment")
+        
         if analysis["potential_iNube_services"]:
             solutions = [s.replace('_', ' ').title() for s in analysis["potential_iNube_services"]]
-            summary_parts.append(f"\nThese pain points can be directly addressed by iNube's {', '.join(solutions[:3])} solutions.")
-        
-        # Add approach recommendation
-        if pain_point_groups:
-            primary_pain_point = list(pain_point_groups.keys())[0]
-            summary_parts.append(f"\nRecommended approach: Focus on {primary_pain_point.replace('_', ' ')} challenges with evidence-based proposals using the source URLs provided.")
-        
-        return "".join(summary_parts)
-    
-    def _generate_pain_point_analysis(self, analysis: Dict) -> str:
-        """Generate detailed pain point analysis"""
-        if not analysis["validated_pain_points"]:
-            return "No specific pain points identified with supporting evidence."
-        
-        pain_point_groups = {}
-        recent_count = 0
-        
-        for pp in analysis["validated_pain_points"]:
-            if pp["pain_point_id"] not in pain_point_groups:
-                pain_point_groups[pp["pain_point_id"]] = []
-            pain_point_groups[pp["pain_point_id"]].append(pp)
+            summary_parts.append(f"**Recommended iNube Solutions**: {', '.join(solutions)}")
             
-            if pp.get("time_period") == "Recent":
-                recent_count += 1
+            # Explain how iNube addresses each pain point
+            summary_parts.append("")
+            summary_parts.append("**How iNube Can Help**:")
+            for pain_point_id in pain_point_groups.keys():
+                pain_point_name = pain_point_id.replace('_', ' ').title()
+                solutions = self.pain_points_mapping[pain_point_id]["iNube_solutions"]
+                solution_names = [s.replace('_', ' ').title() for s in solutions]
+                summary_parts.append(f"- **{pain_point_name}**: Addressed with {', '.join(solution_names)}")
+        else:
+            summary_parts.append("No specific iNube solutions identified for the pain points found.")
         
-        analysis_parts = []
-        for pain_point_id, evidences in pain_point_groups.items():
-            recent_sources = len([ev for ev in evidences if ev.get('time_period') == 'Recent'])
-            recent_indicator = f" ({recent_sources} recent)" if recent_sources > 0 else ""
-            analysis_parts.append(f"{pain_point_id.replace('_', ' ').title()}: {len(evidences)} sources{recent_indicator}")
+        summary_parts.append("")
+        summary_parts.append("### 📊 Assessment Summary")
+        summary_parts.append(f"- **Industry**: {analysis.get('industry', 'Unknown')}")
+        summary_parts.append(f"- **Confidence Score**: {analysis.get('confidence_score', 0)}%")
+        summary_parts.append(f"- **Pain Points Found**: {len(pain_points)}")
+        summary_parts.append(f"- **iNube Solutions Match**: {len(analysis['potential_iNube_services'])} services")
         
-        if recent_count > 0:
-            current_month_year = datetime.now().strftime("%B %Y")
-            analysis_parts.append(f"| Recent sources (May 2025 - {current_month_year}): {recent_count}")
-            
-        return " | ".join(analysis_parts)
+        return "\n".join(summary_parts)
     
-    def _generate_justification(self, analysis: Dict, research_data: Dict) -> str:
-        """Generate justification for iNube fit with pain point focus"""
-        
-        justification_parts = []
-        
-        if analysis["industry"] == "Insurance":
-            justification_parts.append("Company operates in insurance sector, which aligns with iNube's specialization.")
-        
-        pain_point_count = len(analysis["validated_pain_points"])
-        if pain_point_count > 0:
-            recent_count = len([pp for pp in analysis["validated_pain_points"] if pp.get('time_period') == 'Recent'])
-            current_month_year = datetime.now().strftime("%B %Y")
-            if recent_count > 0:
-                justification_parts.append(f"Found {pain_point_count} validated pain points ({recent_count} from May 2025 - {current_month_year}) with source evidence.")
-            else:
-                justification_parts.append(f"Found {pain_point_count} validated pain points with source evidence.")
-        
-        if analysis["digital_maturity"] in ["low", "medium"]:
-            justification_parts.append(f"Digital maturity level ({analysis['digital_maturity']}) indicates technology gaps.")
-        
-        if analysis["potential_iNube_services"]:
-            services_str = ", ".join([s.replace('_', ' ').title() for s in analysis["potential_iNube_services"]])
-            justification_parts.append(f"iNube can address with: {services_str}")
-        
-        return " ".join(justification_parts) if justification_parts else "Limited evidence of specific pain points found."
-
     def _generate_recommendation(self, analysis: Dict) -> str:
-        """Generate recommendation based on analysis with pain point focus"""
+        """Generate recommendation based on recent pain point analysis"""
         
         confidence = analysis["confidence_score"]
         pain_point_count = len(analysis["validated_pain_points"])
-        recent_count = len([pp for pp in analysis["validated_pain_points"] if pp.get('time_period') == 'Recent'])
 
         if confidence >= 70 and pain_point_count >= 2:
-            if recent_count > 0:
-                current_month_year = datetime.now().strftime("%B %Y")
-                return f"STRONG RECOMMENDATION - Multiple validated pain points found with recent source evidence (May 2025 - {current_month_year})"
-            else:
-                return "STRONG RECOMMENDATION - Multiple validated pain points found with source evidence"
+            return "STRONG POTENTIAL CLIENT - Multiple recent pain points identified with clear iNube solution alignment"
         elif confidence >= 50 and pain_point_count >= 1:
-            if recent_count > 0:
-                current_month_year = datetime.now().strftime("%B %Y")
-                return f"MODERATE RECOMMENDATION - Validated pain points identified with recent source URLs (May 2025 - {current_month_year})"
-            else:
-                return "MODERATE RECOMMENDATION - Validated pain points identified with source URLs"
+            return "MODERATE POTENTIAL CLIENT - Recent pain points identified with iNube solution opportunities"
         elif confidence >= 30:
-            return "WEAK RECOMMENDATION - Some challenges identified but limited pain point evidence"
+            return "WEAK POTENTIAL - Limited recent pain point evidence found"
         else:
-            return "INSUFFICIENT EVIDENCE - No validated pain points with source proof found"
+            return "NOT A VIABLE PROSPECT - No recent pain points identified from May 2025 to present"
 
 def main():
-    st.title("iNube Solutions Pain Point Research Agent")
-    st.markdown("Validate company pain points with source URL evidence for targeted client approach")
+    st.title("iNube Solutions - Recent Client Potential Analysis")
+    st.markdown("**Analyzing companies for pain points from May 2025 to present**")
     
     # Sidebar configuration
     with st.sidebar:
@@ -482,70 +354,55 @@ def main():
         
         st.markdown("---")
         
-        # Date filtering option
-        st.subheader("Date Filtering")
         current_month_year = datetime.now().strftime("%B %Y")
-        include_recent_sources = st.checkbox(
-            f"Include recent sources (May 2025 - {current_month_year})", 
-            value=True,
-            help=f"Search for pain point evidence from May 2025 to {current_month_year} using Tavily date range filtering"
-        )
+        st.info(f"**Search Range**: May 2025 - {current_month_year}")
         
-        st.markdown("How to use:")
+        st.markdown("**How to use:**")
         st.markdown("1. Ensure Tavily API key is set")
         st.markdown("2. Input target company details")
-        st.markdown("3. Enable recent sources filtering for current evidence")
-        st.markdown("4. Click Research Company")
-        st.markdown("5. Review validated pain points with source URLs")
-        st.markdown("6. Use evidence for client approach")
+        st.markdown("3. Click Research Company")
+        st.markdown("4. Review recent pain points and iNube alignment")
         
         st.markdown("---")
-        st.markdown("Pain Points We Detect:")
-        pain_points = {
-            "legacy_systems": "Outdated technology infrastructure",
-            "manual_processes": "Inefficient manual workflows", 
-            "customer_experience": "Poor customer satisfaction",
-            "fraud_detection": "Ineffective fraud prevention",
-            "operational_efficiency": "High operational costs",
-            "data_analytics": "Lack of data-driven insights",
-            "digital_transformation": "Slow digital adoption"
-        }
-        for pp_id, pp_desc in pain_points.items():
-            st.markdown(f"- {pp_id.replace('_', ' ').title()}: {pp_desc}")
+        st.markdown("**iNube Solutions:**")
+        for service_id, service_desc in self.iNube_services.items():
+            st.markdown(f"- {service_id.replace('_', ' ').title()}: {service_desc}")
 
     # Main input section
     col1, col2 = st.columns([1, 1])
     
     with col1:
-        st.subheader("Target Company Information")
+        st.subheader("Company Information")
         company_name = st.text_input("Company Name", 
-                                   value="SHRIRAM GENERAL INSURANCE CO. LTD.",
-                                   placeholder="Enter company name")
+                                   placeholder="Enter insurance company name")
         company_url = st.text_input("Company Website URL", 
-                                  value="https://www.shriramgi.com",
                                   placeholder="Enter company website URL")
         
-        research_button = st.button("Research Pain Points", type="primary", disabled=not api_key)
+        research_button = st.button("Analyze Client Potential", type="primary", disabled=not api_key)
     
     with col2:
-        st.subheader("Research Focus")
-        st.markdown("""
-        The agent will specifically search for:
-        - Validated pain points with source URLs as proof
-        - Operational challenges and technology gaps  
-        - Digital transformation initiatives and struggles
-        - Customer experience issues and retention challenges
-        - Evidence-based insights for client approach
+        st.subheader("Analysis Focus")
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        st.markdown(f"""
+        This analysis will exclusively search for:
+        
+        **Timeframe**: May 1, 2025 - {current_date}
+        
+        **Focus Areas**:
+        - Recent business challenges and pain points
+        - Technology and operational gaps
+        - Digital transformation struggles
+        - Customer experience issues
+        - Insurance-specific challenges
+        
+        **Output**: Client potential assessment with iNube solution alignment
         """)
         
-        if include_recent_sources:
-            current_date = datetime.now().strftime("%Y-%m-%d")
-            st.success(f"Recent sources filtering enabled - Using Tavily date range: 2025-05-01 to {current_date}")
-        else:
-            st.info("Enable recent sources filtering to get the most current pain point evidence")
+        st.warning("Only sources from May 2025 to present will be considered")
+
     
     if not api_key:
-        st.error("Please provide a Tavily API key to begin research")
+        st.error("Please provide a Tavily API key to begin analysis")
         return
     
     try:
@@ -555,222 +412,77 @@ def main():
         return
     
     if research_button and company_name:
-        with st.spinner(f"Researching {company_name} for validated pain points with source evidence... This may take 2-3 minutes."):
-            research_data, detailed_results = agent.research_company(
-                company_name, 
-                company_url, 
-                include_recent_sources=include_recent_sources
-            )
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        with st.spinner(f"Researching {company_name} for recent pain points (May 2025 - {current_date})... This may take 2-3 minutes."):
+            research_data, detailed_results = agent.research_company(company_name, company_url)
             analysis = agent.analyze_company_fit(research_data)
         
         if analysis and research_data.get("research_points"):
-            display_pain_point_analysis(analysis, detailed_results, agent, include_recent_sources)
+            display_client_analysis(analysis, agent)
         else:
-            st.error("Research failed or no data found. Please check the company name and try again.")
+            st.error("Research failed or no recent data found. The company may not have publicly discussed challenges recently.")
 
-def display_pain_point_analysis(analysis: Dict, detailed_results: List[Dict], agent: TavilyResearchAgent, include_recent_sources: bool = False):
-    """Display comprehensive analysis with focus on pain points and source evidence"""
+def display_client_analysis(analysis: Dict, agent: TavilyResearchAgent):
+    """Display focused client potential analysis"""
     
     st.markdown("---")
-    st.header(f"Pain Point Analysis Report: {analysis['company_name']}")
     
-    # Key metrics with pain point focus
-    st.subheader("Executive Summary")
-    col1, col2, col3, col4 = st.columns(4)
+    # Client Potential Summary
+    st.markdown(analysis['client_potential_summary'])
     
-    with col1:
-        st.metric("Industry", analysis.get('industry', 'Unknown'))
-    with col2:
-        st.metric("Validated Pain Points", len(analysis.get('validated_pain_points', [])))
-    with col3:
-        st.metric("Confidence Score", f"{analysis.get('confidence_score', 0)}%")
-    with col4:
-        services_count = len(analysis.get('potential_iNube_services', []))
-        st.metric("Recommended Solutions", services_count)
+    st.markdown("---")
     
-    # Recent Sources Section
-    if include_recent_sources and analysis.get('recent_sources'):
-        st.markdown("---")
-        st.header("Recent Sources (May 2025 - Present)")
+    # Final Recommendation
+    st.subheader("🎯 Final Recommendation")
+    recommendation = analysis.get('recommendation', 'No recommendation available')
+    if "STRONG" in recommendation:
+        st.success(recommendation)
+    elif "MODERATE" in recommendation:
+        st.warning(recommendation)
+    else:
+        st.error(recommendation)
+    
+    # Recent Sources
+    st.markdown("---")
+    st.subheader("📚 Recent Sources Analyzed")
+    
+    recent_sources = analysis.get('recent_sources', [])
+    if recent_sources:
+        st.info(f"Analyzed {len(recent_sources)} sources from May 2025 to present")
         
-        current_month_year = datetime.now().strftime("%B %Y")
-        st.success(f"Found {len(analysis['recent_sources'])} sources from May 2025 to {current_month_year}")
-        
-        for i, source in enumerate(analysis['recent_sources']):
-            with st.expander(f"Recent Source {i+1}: {source['title']}", expanded=i==0):
+        for i, source in enumerate(recent_sources):
+            with st.expander(f"Source {i+1}: {source['title']}", expanded=i<2):
                 st.markdown(f"**URL**: {source['url']}")
-                st.markdown(f"**Search Query**: {source['query']}")
-                st.markdown(f"**Date Range**: {source['date_range']}")
                 st.markdown(f"**Content Preview**: {source['content']}")
                 st.markdown("---")
-    
-    # Client Potential Summary Section
-    st.markdown("---")
-    st.header("Client Potential Assessment")
-    
-    if analysis.get('client_potential_summary'):
-        st.info(analysis['client_potential_summary'])
     else:
-        st.warning("No client potential assessment available.")
-    
-    # Pain Points Section - Separate recent and general sources
-    st.markdown("---")
-    st.header("Validated Pain Points with Source Evidence")
-    
-    pain_points = analysis.get('validated_pain_points', [])
-    
-    if not pain_points:
-        st.warning("No validated pain points found with source evidence.")
-    else:
-        # Separate recent pain points
-        recent_pain_points = [pp for pp in pain_points if pp.get('time_period') == 'Recent']
-        general_pain_points = [pp for pp in pain_points if pp.get('time_period') != 'Recent']
-        
-        # Display recent pain points first
-        if recent_pain_points:
-            current_month_year = datetime.now().strftime("%B %Y")
-            st.subheader(f"Recent Pain Points (May 2025 - {current_month_year})")
-            st.info(f"Found {len(recent_pain_points)} pain point evidence sources from recent timeframe")
-            
-            for pain_point in recent_pain_points:
-                with st.expander(f"RECENT: {pain_point['pain_point_name']} - Current Evidence", expanded=True):
-                    if pain_point["iNube_solutions"]:
-                        solutions = [s.replace('_', ' ').title() for s in pain_point["iNube_solutions"]]
-                        st.success(f"iNube Solutions: {', '.join(solutions)}")
-                    
-                    st.markdown(f"**Source**: [{pain_point['source_title']}]({pain_point['source_url']})")
-                    st.markdown(f"**Evidence**: {pain_point['evidence']}")
-                    st.markdown(f"**Keyword Identified**: `{pain_point['keyword_found']}`")
-                    st.markdown(f"**Time Period**: {pain_point['time_period']}")
-                    st.markdown(f"**Confidence**: {pain_point['confidence'].title()}")
-                    st.markdown("---")
-        
-        # Display general pain points
-        if general_pain_points:
-            pain_point_groups = {}
-            for pp in general_pain_points:
-                if pp["pain_point_id"] not in pain_point_groups:
-                    pain_point_groups[pp["pain_point_id"]] = []
-                pain_point_groups[pp["pain_point_id"]].append(pp)
-            
-            section_title = "General Pain Points" if recent_pain_points else "All Pain Points"
-            st.subheader(section_title)
-            
-            for pain_point_id, evidences in pain_point_groups.items():
-                with st.expander(f"{pain_point_id.replace('_', ' ').title()} - {len(evidences)} evidence source(s)", expanded=len(recent_pain_points)==0):
-                    
-                    if evidences[0]["iNube_solutions"]:
-                        solutions = [s.replace('_', ' ').title() for s in evidences[0]["iNube_solutions"]]
-                        st.success(f"iNube Solutions: {', '.join(solutions)}")
-                    
-                    for i, evidence in enumerate(evidences):
-                        st.markdown(f"**Evidence #{i+1}**")
-                        st.markdown(f"Source: [{evidence['source_title']}]({evidence['source_url']})")
-                        st.markdown(f"**Context**: {evidence['evidence']}")
-                        st.markdown(f"Keyword identified: {evidence['keyword_found']}")
-                        st.markdown("---")
-
-    # Rest of the display functions remain the same...
-    if detailed_results:
-        st.markdown("---")
-        st.subheader("Detailed Research Findings")
-        
-        research_table_data = []
-        for result in detailed_results:
-            research_table_data.append({
-                "Source Title": result.get('title', 'N/A'),
-                "URL": result.get('url', 'N/A'),
-                "Time Period": result.get('time_period', 'General'),
-                "Key Content": result.get('content', '')[:200] + "..." if len(result.get('content', '')) > 200 else result.get('content', 'N/A'),
-                "Search Query": result.get('query', 'N/A')
-            })
-        
-        research_df = pd.DataFrame(research_table_data)
-        st.dataframe(research_df, use_container_width=True)
-    
-    # Justification and Recommendation
-    st.markdown("---")
-    st.subheader("Analysis Justification & Recommendation")
-    
-    col1, col2 = st.columns([1, 1])
-    
-    with col1:
-        st.markdown("**Justification:**")
-        st.info(analysis.get('fit_justification', 'No justification available'))
-        
-        if analysis.get('pain_point_analysis'):
-            st.markdown("**Pain Point Analysis:**")
-            st.info(analysis['pain_point_analysis'])
-    
-    with col2:
-        st.markdown("**Final Recommendation:**")
-        recommendation = analysis.get('recommendation', 'No recommendation available')
-        if "STRONG" in recommendation:
-            st.success(recommendation)
-        elif "MODERATE" in recommendation:
-            st.warning(recommendation)
-        else:
-            st.error(recommendation)
-    
-    # Source URLs
-    st.markdown("---")
-    st.subheader("Research Sources")
-    sources = analysis.get('sources', [])
-    if sources:
-        # Separate recent and general sources
-        recent_sources = [s for s in sources if s.get('time_period', '').startswith('Recent')]
-        general_sources = [s for s in sources if not s.get('time_period', '').startswith('Recent')]
-        
-        if recent_sources:
-            st.markdown("**Recent Sources (May 2025 - Present):**")
-            for i, source in enumerate(recent_sources):
-                st.markdown(f"{i+1}. {source.get('title', 'No title')} - {source.get('url', 'No URL')}")
-        
-        if general_sources:
-            st.markdown("**General Sources:**")
-            start_num = len(recent_sources) + 1
-            for i, source in enumerate(general_sources, start=start_num):
-                st.markdown(f"{i}. {source.get('title', 'No title')} - {source.get('url', 'No URL')}")
-    else:
-        st.info("No sources available")
+        st.warning("No recent sources found from May 2025 to present")
     
     # Export functionality
     st.markdown("---")
     st.subheader("Export Results")
     
     export_data = []
+    pain_points = analysis.get('validated_pain_points', [])
     
     for pp in pain_points:
         export_data.append({
-            "Type": "Pain Point",
-            "Category": pp["pain_point_name"],
+            "Pain Point": pp["pain_point_name"],
             "Evidence": pp["evidence"],
             "Source_URL": pp["source_url"],
             "Source_Title": pp["source_title"],
-            "Time_Period": pp.get("time_period", "General"),
             "iNube_Solutions": ", ".join([s.replace('_', ' ').title() for s in pp["iNube_solutions"]]),
             "Confidence": pp["confidence"]
         })
-    
-    export_data.append({
-        "Type": "Company Analysis",
-        "Category": "Overall Recommendation",
-        "Evidence": analysis.get('recommendation', ''),
-        "Source_URL": analysis.get('company_url', ''),
-        "Source_Title": "Analysis Summary",
-        "Time_Period": "Analysis",
-        "iNube_Solutions": ", ".join([s.replace('_', ' ').title() for s in analysis.get('potential_iNube_services', [])]),
-        "Confidence": f"{analysis.get('confidence_score', 0)}%"
-    })
     
     if export_data:
         export_df = pd.DataFrame(export_data)
         csv_data = export_df.to_csv(index=False)
         
         st.download_button(
-            label="Download Pain Points Analysis CSV",
+            label="Download Pain Points Analysis",
             data=csv_data,
-            file_name=f"inube_pain_points_{analysis['company_name'].lower().replace(' ', '_')}.csv",
+            file_name=f"inube_client_analysis_{analysis['company_name'].lower().replace(' ', '_')}.csv",
             mime="text/csv",
             type="primary"
         )
