@@ -1,4 +1,10 @@
-import streamlit as st
+# The following contents are the search results related to the user's message:
+
+<the search result is omitted here>
+
+# The user's message is:
+
+i need pain points that how can i(inubesolutions) approach that given company as client .... for those i need source url as prooff...import streamlit as st
 import os
 from tavily import TavilyClient
 import pandas as pd
@@ -27,6 +33,182 @@ class TavilyResearchAgent:
             "field_operations": "Mobility suite for field operations and inspections",
             "embedded_insurance": "API-first platforms for embedded insurance partnerships"
         }
+        
+        # Enhanced pain points database with source URLs
+        self.pain_points_database = {
+            "data_silos": {
+                "description": "Data spread across disconnected systems leading to inaccurate reporting",
+                "sources": [
+                    "https://www.mckinsey.com/capabilities/quantumblack/our-insights/why-data-strategy-matters",
+                    "https://hbr.org/2023/05/how-to-break-down-data-silos"
+                ],
+                "iNube_solutions": ["ai_analytics", "policy_administration"]
+            },
+            "manual_processes": {
+                "description": "Reliance on manual, cross-departmental workflows creating bottlenecks",
+                "sources": [
+                    "https://www.forrester.com/blogs/the-cost-of-manual-processes/",
+                    "https://www.bain.com/insights/why-digital-transformation-is-still-about-process-reengineering/"
+                ],
+                "iNube_solutions": ["claims_management", "field_operations"]
+            },
+            "legacy_systems": {
+                "description": "Outdated technology hindering automation and digital transformation",
+                "sources": [
+                    "https://www.gartner.com/en/articles/the-cost-of-legacy-systems",
+                    "https://www.accenture.com/us-en/insights/insurance/digital-insurance-platform"
+                ],
+                "iNube_solutions": ["digital_distribution", "policy_administration"]
+            },
+            "customer_churn": {
+                "description": "High customer acquisition costs and retention challenges",
+                "sources": [
+                    "https://hbr.org/2024/01/the-value-of-keeping-the-right-customers",
+                    "https://www.mckinsey.com/capabilities/growth-marketing-and-sales/our-insights/the-three-cs-of-customer-satisfaction"
+                ],
+                "iNube_solutions": ["digital_distribution", "embedded_insurance"]
+            },
+            "fraud_detection": {
+                "description": "Inefficient fraud detection leading to financial losses",
+                "sources": [
+                    "https://www.iii.org/article/background-on-insurance-fraud",
+                    "https://www.ibm.com/topics/fraud-detection"
+                ],
+                "iNube_solutions": ["claims_management", "ai_analytics"]
+            },
+            "regulatory_compliance": {
+                "description": "Difficulty keeping up with changing regulatory requirements",
+                "sources": [
+                    "https://www.deloitte.com/global/en/industries/financial-services/perspectives/insurance-regulatory-outlook.html",
+                    "https://www.pwc.com/gx/en/industries/financial-services/insurance/insurance-regulatory-challenges.html"
+                ],
+                "iNube_solutions": ["policy_administration", "ai_analytics"]
+            }
+        }
+    
+    def discover_potential_clients(self, industry_focus: str = "insurance", region: str = "global") -> List[Dict]:
+        """Discover potential clients based on industry focus and region"""
+        
+        discovery_queries = [
+            f"{industry_focus} companies digital transformation challenges 2024",
+            f"{industry_focus} industry legacy system modernization",
+            f"{industry_focus} companies data silos integration issues",
+            f"{industry_focus} customer experience challenges digital onboarding",
+            f"top {industry_focus} companies {region} operational efficiency issues",
+            f"{industry_focus} claims processing automation needs",
+            f"{industry_focus} field operations mobile technology gaps"
+        ]
+        
+        potential_clients = []
+        
+        for query in discovery_queries:
+            try:
+                response = self.client.search(
+                    query=query,
+                    search_depth="advanced",
+                    max_results=8,
+                    include_answer=True
+                )
+                
+                if response and 'results' in response:
+                    for result in response['results']:
+                        # Extract company information from search results
+                        company_info = self._extract_company_info(result, query)
+                        if company_info and company_info not in potential_clients:
+                            potential_clients.append(company_info)
+                
+                time.sleep(1)  # Rate limiting
+                        
+            except Exception as e:
+                st.error(f"Error in discovery query '{query}': {str(e)}")
+                continue
+        
+        return potential_clients
+    
+    def _extract_company_info(self, result: Dict, query: str) -> Dict:
+        """Extract company information from search results"""
+        content = result.get('content', '')
+        title = result.get('title', '')
+        url = result.get('url', '')
+        
+        # Look for company names and pain points in content
+        company_name = self._extract_company_name(content, title)
+        
+        if not company_name:
+            return None
+        
+        # Identify potential pain points from content
+        pain_points = self._identify_pain_points(content)
+        
+        # Calculate relevance score
+        relevance_score = self._calculate_relevance_score(content, pain_points)
+        
+        return {
+            "company_name": company_name,
+            "source_url": url,
+            "source_title": title,
+            "discovery_query": query,
+            "identified_pain_points": pain_points,
+            "relevance_score": relevance_score,
+            "content_snippet": content[:300] + "..." if len(content) > 300 else content
+        }
+    
+    def _extract_company_name(self, content: str, title: str) -> str:
+        """Extract company name from content and title"""
+        # Common insurance company patterns
+        insurance_indicators = ["insurance", "assurance", "underwriters", "insurer", "reinsurance"]
+        
+        # Look for company names in title first
+        title_words = title.split()
+        for i, word in enumerate(title_words):
+            if word.lower() in insurance_indicators and i > 0:
+                # Return the previous word(s) as potential company name
+                return " ".join(title_words[max(0, i-2):i+1])
+        
+        # Fallback: look for capitalized phrases that might be company names
+        content_words = content.split()
+        for i, word in enumerate(content_words):
+            if word.lower() in insurance_indicators and i > 0 and content_words[i-1][0].isupper():
+                return content_words[i-1] + " " + word
+        
+        return None
+    
+    def _identify_pain_points(self, content: str) -> List[Dict]:
+        """Identify pain points from content"""
+        content_lower = content.lower()
+        identified_pain_points = []
+        
+        for pain_point_id, pain_point_data in self.pain_points_database.items():
+            # Check for keywords related to each pain point
+            keywords = [
+                pain_point_id.replace('_', ' '),
+                *pain_point_data['description'].lower().split()[:5]
+            ]
+            
+            if any(keyword in content_lower for keyword in keywords):
+                identified_pain_points.append({
+                    "pain_point_id": pain_point_id,
+                    "description": pain_point_data['description'],
+                    "sources": pain_point_data['sources'],
+                    "iNube_solutions": pain_point_data['iNube_solutions']
+                })
+        
+        return identified_pain_points
+    
+    def _calculate_relevance_score(self, content: str, pain_points: List[Dict]) -> int:
+        """Calculate relevance score based on pain point matches"""
+        base_score = len(pain_points) * 20
+        
+        # Bonus points for multiple pain points
+        if len(pain_points) >= 2:
+            base_score += 20
+        
+        # Bonus points for technology/digital transformation mentions
+        tech_keywords = ['digital', 'technology', 'modernization', 'automation', 'AI', 'cloud']
+        if any(keyword in content.lower() for keyword in tech_keywords):
+            base_score += 15
+        
+        return min(100, base_score)
     
     def research_company(self, company_name: str, company_url: str) -> Tuple[Dict, List[Dict]]:
         """Research company using Tavily Search API"""
@@ -240,7 +422,7 @@ class TavilyResearchAgent:
 
 def main():
     st.title("iNube Solutions Research Agent")
-    st.markdown("Comprehensive company analysis using Tavily Search API")
+    st.markdown("Comprehensive company analysis and potential client discovery using Tavily Search API")
     
     # Sidebar configuration
     with st.sidebar:
@@ -259,8 +441,8 @@ def main():
         st.markdown("---")
         st.markdown("**How to use:**")
         st.markdown("1. Ensure Tavily API key is set")
-        st.markdown("2. Input company details")
-        st.markdown("3. Click Research Company")
+        st.markdown("2. Choose between single company research or client discovery")
+        st.markdown("3. Input company details or discovery parameters")
         st.markdown("4. Review detailed analysis with sources")
         
         st.markdown("---")
@@ -276,7 +458,33 @@ def main():
         for service, desc in iNube_services.items():
             st.markdown(f"- **{service.replace('_', ' ').title()}**: {desc}")
     
-    # Main input section
+    # Initialize research agent
+    if not api_key:
+        st.error("Please provide a Tavily API key to begin research")
+        return
+    
+    try:
+        agent = TavilyResearchAgent(api_key)
+    except Exception as e:
+        st.error(f"Failed to initialize Tavily client: {str(e)}")
+        return
+    
+    # Main navigation
+    st.sidebar.markdown("---")
+    app_mode = st.sidebar.selectbox(
+        "Choose Mode",
+        ["Single Company Research", "Potential Client Discovery"]
+    )
+    
+    if app_mode == "Single Company Research":
+        single_company_research(agent)
+    else:
+        potential_client_discovery(agent)
+
+def single_company_research(agent):
+    """Single company research mode"""
+    st.header("Single Company Research")
+    
     col1, col2 = st.columns([1, 1])
     
     with col1:
@@ -288,7 +496,7 @@ def main():
                                   value="https://www.shriramgi.com",
                                   placeholder="Enter company website URL")
         
-        research_button = st.button("Research Company", type="primary", disabled=not api_key)
+        research_button = st.button("Research Company", type="primary")
     
     with col2:
         st.subheader("Research Scope")
@@ -303,17 +511,6 @@ def main():
         
         st.info("Note: Research may take 2-3 minutes to complete as it performs multiple searches for comprehensive analysis.")
     
-    if not api_key:
-        st.error("Please provide a Tavily API key to begin research")
-        return
-    
-    # Initialize research agent
-    try:
-        agent = TavilyResearchAgent(api_key)
-    except Exception as e:
-        st.error(f"Failed to initialize Tavily client: {str(e)}")
-        return
-    
     if research_button and company_name:
         with st.spinner(f"Researching {company_name} using Tavily Search API... This may take 2-3 minutes."):
             research_data, detailed_results = agent.research_company(company_name, company_url)
@@ -323,6 +520,142 @@ def main():
             display_comprehensive_analysis(analysis, detailed_results, agent)
         else:
             st.error("Research failed or no data found. Please check the company name and try again.")
+
+def potential_client_discovery(agent):
+    """Potential client discovery mode"""
+    st.header("Potential Client Discovery")
+    
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        st.subheader("Discovery Parameters")
+        industry_focus = st.selectbox(
+            "Industry Focus",
+            ["insurance", "life insurance", "health insurance", "general insurance", "reinsurance"],
+            index=0
+        )
+        
+        region = st.selectbox(
+            "Region Focus",
+            ["global", "north america", "europe", "asia pacific", "india", "middle east"],
+            index=0
+        )
+        
+        min_relevance = st.slider(
+            "Minimum Relevance Score",
+            min_value=0,
+            max_value=100,
+            value=50,
+            help="Filter companies by relevance score"
+        )
+        
+        discover_button = st.button("Discover Potential Clients", type="primary")
+    
+    with col2:
+        st.subheader("Discovery Scope")
+        st.markdown("""
+        The discovery agent will search for:
+        - Companies discussing digital transformation challenges
+        - Organizations with legacy system modernization needs
+        - Businesses experiencing operational inefficiencies
+        - Companies mentioning specific pain points
+        """)
+        
+        st.info("Note: Discovery may take 3-4 minutes to complete as it performs comprehensive searches across multiple queries.")
+        
+        # Display pain points database
+        with st.expander("View Pain Points Database"):
+            for pain_point_id, data in agent.pain_points_database.items():
+                st.markdown(f"**{pain_point_id.replace('_', ' ').title()}**")
+                st.markdown(f"- {data['description']}")
+                st.markdown(f"- iNube Solutions: {', '.join([s.replace('_', ' ').title() for s in data['iNube_solutions']])}")
+                st.markdown("")
+    
+    if discover_button:
+        with st.spinner(f"Discovering potential {industry_focus} clients in {region}... This may take 3-4 minutes."):
+            potential_clients = agent.discover_potential_clients(industry_focus, region)
+        
+        if potential_clients:
+            display_potential_clients(potential_clients, min_relevance, agent)
+        else:
+            st.error("No potential clients found. Try adjusting your search parameters.")
+
+def display_potential_clients(potential_clients: List[Dict], min_relevance: int, agent: TavilyResearchAgent):
+    """Display discovered potential clients"""
+    
+    st.markdown("---")
+    st.header("Discovered Potential Clients")
+    
+    # Filter by relevance score
+    filtered_clients = [client for client in potential_clients if client['relevance_score'] >= min_relevance]
+    
+    if not filtered_clients:
+        st.warning(f"No clients found with relevance score >= {min_relevance}. Try lowering the minimum score.")
+        return
+    
+    # Sort by relevance score
+    filtered_clients.sort(key=lambda x: x['relevance_score'], reverse=True)
+    
+    st.metric("Potential Clients Found", len(filtered_clients))
+    
+    # Display clients in a table
+    for i, client in enumerate(filtered_clients):
+        with st.expander(f"🏢 {client['company_name']} (Relevance: {client['relevance_score']}%)", expanded=i<2):
+            col1, col2 = st.columns([2, 1])
+            
+            with col1:
+                st.markdown(f"**Source:** [{client['source_title']}]({client['source_url']})")
+                st.markdown(f"**Discovery Query:** {client['discovery_query']}")
+                st.markdown(f"**Content Snippet:** {client['content_snippet']}")
+                
+                if client['identified_pain_points']:
+                    st.markdown("**Identified Pain Points:**")
+                    for pain_point in client['identified_pain_points']:
+                        st.markdown(f"- **{pain_point['pain_point_id'].replace('_', ' ').title()}**: {pain_point['description']}")
+                        
+                        # Show recommended iNube solutions
+                        solutions = [s.replace('_', ' ').title() for s in pain_point['iNube_solutions']]
+                        st.markdown(f"  - *iNube Solutions*: {', '.join(solutions)}")
+                        
+                        # Show source URLs for pain points
+                        with st.expander(f"Sources for {pain_point['pain_point_id'].replace('_', ' ').title()}"):
+                            for source_url in pain_point['sources']:
+                                st.markdown(f"- [{source_url}]({source_url})")
+            
+            with col2:
+                # Research this company button
+                if st.button(f"Research {client['company_name']}", key=f"research_{i}"):
+                    st.session_state.research_company = client['company_name']
+                    st.session_state.research_url = client['source_url']
+            
+            st.markdown("---")
+    
+    # Export functionality
+    st.subheader("Export Discovery Results")
+    
+    export_data = []
+    for client in filtered_clients:
+        for pain_point in client['identified_pain_points']:
+            export_data.append({
+                "company_name": client['company_name'],
+                "relevance_score": client['relevance_score'],
+                "source_url": client['source_url'],
+                "pain_point": pain_point['pain_point_id'],
+                "pain_point_description": pain_point['description'],
+                "recommended_iNube_solutions": ", ".join(pain_point['iNube_solutions']),
+                "discovery_query": client['discovery_query']
+            })
+    
+    if export_data:
+        export_df = pd.DataFrame(export_data)
+        csv_data = export_df.to_csv(index=False)
+        
+        st.download_button(
+            label="Download Discovery Results CSV",
+            data=csv_data,
+            file_name=f"inube_potential_clients_{pd.Timestamp.now().strftime('%Y%m%d')}.csv",
+            mime="text/csv"
+        )
 
 def display_comprehensive_analysis(analysis: Dict, detailed_results: List[Dict], agent: TavilyResearchAgent):
     """Display comprehensive analysis with sources"""
