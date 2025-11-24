@@ -5,6 +5,7 @@ import pandas as pd
 import json
 from typing import Dict, List, Tuple
 import time
+from datetime import datetime
 
 # Page configuration
 st.set_page_config(
@@ -67,7 +68,7 @@ class TavilyResearchAgent:
             }
         }
     
-    def research_company(self, company_name: str, company_url: str, include_may_2025: bool = False) -> Tuple[Dict, List[Dict]]:
+    def research_company(self, company_name: str, company_url: str, include_recent_sources: bool = False) -> Tuple[Dict, List[Dict]]:
         """Research company using Tavily Search API with focus on pain points"""
         
         # Base search queries
@@ -89,7 +90,7 @@ class TavilyResearchAgent:
             "sources": [],
             "research_points": [],
             "identified_pain_points": [],
-            "may_2025_sources": []
+            "recent_sources": []  # Sources from May 2025 to present
         }
         
         # First, do general searches without date restriction
@@ -98,7 +99,7 @@ class TavilyResearchAgent:
                 response = self.client.search(
                     query=query,
                     search_depth="advanced",
-                    max_results=3,  # Reduced to allow for May 2025 searches
+                    max_results=3,  # Reduced to allow for recent source searches
                     include_answer=True
                 )
                 
@@ -125,27 +126,30 @@ class TavilyResearchAgent:
                 st.error(f"Error in search query '{query}': {str(e)}")
                 continue
         
-        # Then, do May 2025 specific searches if requested
-        if include_may_2025:
-            may_2025_queries = [
+        # Then, do recent source searches (May 2025 to present) if requested
+        if include_recent_sources:
+            current_date = datetime.now().strftime("%Y-%m-%d")
+            recent_queries = [
                 f"{company_name} challenges 2025",
                 f"{company_name} technology issues 2025", 
                 f"{company_name} digital transformation 2025",
                 f"{company_name} operational efficiency 2025",
                 f"{company_name} customer experience 2025",
-                f"{company_name} insurance challenges 2025"
+                f"{company_name} insurance challenges 2025",
+                f"{company_name} business problems 2025",
+                f"{company_name} IT systems issues 2025"
             ]
             
-            for query in may_2025_queries:
+            for query in recent_queries:
                 try:
                     response = self.client.search(
                         query=query,
                         search_depth="advanced",
                         max_results=3,
                         include_answer=True,
-                        # Set date range for May 2025
+                        # Set date range from May 2025 to current date
                         start_date="2025-05-01",
-                        end_date="2025-05-31"
+                        end_date=current_date
                     )
                     
                     if response and 'results' in response:
@@ -155,14 +159,15 @@ class TavilyResearchAgent:
                                 "url": result.get('url', ''),
                                 "content": result.get('content', ''),
                                 "query": query,
-                                "time_period": "May 2025"
+                                "time_period": f"Recent (May 2025 - {datetime.now().strftime('%b %Y')})"
                             }
                             all_results.append(source_info)
-                            analysis_data["may_2025_sources"].append({
+                            analysis_data["recent_sources"].append({
                                 "title": result.get('title', ''),
                                 "url": result.get('url', ''),
                                 "content": result.get('content', '')[:500] + "..." if len(result.get('content', '')) > 500 else result.get('content', ''),
-                                "query": query
+                                "query": query,
+                                "date_range": f"May 2025 - {datetime.now().strftime('%b %Y')}"
                             })
                             
                             points = self._extract_key_points(result, query)
@@ -174,7 +179,7 @@ class TavilyResearchAgent:
                     time.sleep(1)
                             
                 except Exception as e:
-                    st.error(f"Error in May 2025 search query '{query}': {str(e)}")
+                    st.error(f"Error in recent source search query '{query}': {str(e)}")
                     continue
         
         if all_results:
@@ -209,7 +214,7 @@ class TavilyResearchAgent:
                             "keyword_found": keyword,
                             "iNube_solutions": pain_point_data["iNube_solutions"],
                             "confidence": "high" if len(context) > 100 else "medium",
-                            "time_period": "May 2025" if "2025" in query else "General"
+                            "time_period": "Recent" if "2025" in query else "General"
                         })
                     break
         
@@ -246,7 +251,7 @@ class TavilyResearchAgent:
                         "source_url": url,
                         "source_title": title,
                         "relevance": "medium",
-                        "time_period": "May 2025" if "2025" in query else "General"
+                        "time_period": "Recent" if "2025" in query else "General"
                     })
                     break
         
@@ -270,7 +275,7 @@ class TavilyResearchAgent:
             "sources": research_data.get("sources", []),
             "pain_point_analysis": "",
             "client_potential_summary": "",
-            "may_2025_sources": research_data.get("may_2025_sources", [])
+            "recent_sources": research_data.get("recent_sources", [])
         }
         
         pain_point_count = len(analysis["validated_pain_points"])
@@ -339,29 +344,30 @@ class TavilyResearchAgent:
         
         # Group pain points by category and time period
         pain_point_groups = {}
-        may_2025_count = 0
+        recent_count = 0
         
         for pp in pain_points:
             if pp["pain_point_id"] not in pain_point_groups:
                 pain_point_groups[pp["pain_point_id"]] = []
             pain_point_groups[pp["pain_point_id"]].append(pp)
             
-            if pp.get("time_period") == "May 2025":
-                may_2025_count += 1
+            if pp.get("time_period") == "Recent":
+                recent_count += 1
         
         summary_parts = []
         summary_parts.append(f"Based on our research, {analysis['company_name']} demonstrates strong client potential for iNube Solutions due to validated business challenges across {len(pain_point_groups)} key areas.")
         
-        # Highlight May 2025 findings if available
-        if may_2025_count > 0:
-            summary_parts.append(f" Found {may_2025_count} recent pain point evidence sources from May 2025.")
+        # Highlight recent findings if available
+        if recent_count > 0:
+            current_month_year = datetime.now().strftime("%B %Y")
+            summary_parts.append(f" Found {recent_count} recent pain point evidence sources from May 2025 to {current_month_year}.")
         
         # Add pain point specific summaries
         for pain_point_id, evidences in pain_point_groups.items():
             pain_point_name = pain_point_id.replace('_', ' ').title()
             source_count = len(evidences)
-            may_2025_sources = [ev for ev in evidences if ev.get('time_period') == 'May 2025']
-            recent_indicator = " (Recent)" if may_2025_sources else ""
+            recent_sources = [ev for ev in evidences if ev.get('time_period') == 'Recent']
+            recent_indicator = " (Recent)" if recent_sources else ""
             
             sources_links = ", ".join([f"[Source {i+1}]({ev['source_url']})" for i, ev in enumerate(evidences[:2])])
             
@@ -385,24 +391,25 @@ class TavilyResearchAgent:
             return "No specific pain points identified with supporting evidence."
         
         pain_point_groups = {}
-        may_2025_count = 0
+        recent_count = 0
         
         for pp in analysis["validated_pain_points"]:
             if pp["pain_point_id"] not in pain_point_groups:
                 pain_point_groups[pp["pain_point_id"]] = []
             pain_point_groups[pp["pain_point_id"]].append(pp)
             
-            if pp.get("time_period") == "May 2025":
-                may_2025_count += 1
+            if pp.get("time_period") == "Recent":
+                recent_count += 1
         
         analysis_parts = []
         for pain_point_id, evidences in pain_point_groups.items():
-            may_sources = len([ev for ev in evidences if ev.get('time_period') == 'May 2025'])
-            recent_indicator = f" ({may_sources} recent)" if may_sources > 0 else ""
+            recent_sources = len([ev for ev in evidences if ev.get('time_period') == 'Recent'])
+            recent_indicator = f" ({recent_sources} recent)" if recent_sources > 0 else ""
             analysis_parts.append(f"{pain_point_id.replace('_', ' ').title()}: {len(evidences)} sources{recent_indicator}")
         
-        if may_2025_count > 0:
-            analysis_parts.append(f"| May 2025 sources: {may_2025_count}")
+        if recent_count > 0:
+            current_month_year = datetime.now().strftime("%B %Y")
+            analysis_parts.append(f"| Recent sources (May 2025 - {current_month_year}): {recent_count}")
             
         return " | ".join(analysis_parts)
     
@@ -416,9 +423,10 @@ class TavilyResearchAgent:
         
         pain_point_count = len(analysis["validated_pain_points"])
         if pain_point_count > 0:
-            may_2025_count = len([pp for pp in analysis["validated_pain_points"] if pp.get('time_period') == 'May 2025'])
-            if may_2025_count > 0:
-                justification_parts.append(f"Found {pain_point_count} validated pain points ({may_2025_count} from May 2025) with source evidence.")
+            recent_count = len([pp for pp in analysis["validated_pain_points"] if pp.get('time_period') == 'Recent'])
+            current_month_year = datetime.now().strftime("%B %Y")
+            if recent_count > 0:
+                justification_parts.append(f"Found {pain_point_count} validated pain points ({recent_count} from May 2025 - {current_month_year}) with source evidence.")
             else:
                 justification_parts.append(f"Found {pain_point_count} validated pain points with source evidence.")
         
@@ -436,16 +444,18 @@ class TavilyResearchAgent:
         
         confidence = analysis["confidence_score"]
         pain_point_count = len(analysis["validated_pain_points"])
-        may_2025_count = len([pp for pp in analysis["validated_pain_points"] if pp.get('time_period') == 'May 2025'])
+        recent_count = len([pp for pp in analysis["validated_pain_points"] if pp.get('time_period') == 'Recent'])
 
         if confidence >= 70 and pain_point_count >= 2:
-            if may_2025_count > 0:
-                return "STRONG RECOMMENDATION - Multiple validated pain points found with recent May 2025 source evidence"
+            if recent_count > 0:
+                current_month_year = datetime.now().strftime("%B %Y")
+                return f"STRONG RECOMMENDATION - Multiple validated pain points found with recent source evidence (May 2025 - {current_month_year})"
             else:
                 return "STRONG RECOMMENDATION - Multiple validated pain points found with source evidence"
         elif confidence >= 50 and pain_point_count >= 1:
-            if may_2025_count > 0:
-                return "MODERATE RECOMMENDATION - Validated pain points identified with recent May 2025 source URLs"
+            if recent_count > 0:
+                current_month_year = datetime.now().strftime("%B %Y")
+                return f"MODERATE RECOMMENDATION - Validated pain points identified with recent source URLs (May 2025 - {current_month_year})"
             else:
                 return "MODERATE RECOMMENDATION - Validated pain points identified with source URLs"
         elif confidence >= 30:
@@ -474,16 +484,17 @@ def main():
         
         # Date filtering option
         st.subheader("Date Filtering")
-        include_may_2025 = st.checkbox(
-            "Include May 2025 specific sources", 
+        current_month_year = datetime.now().strftime("%B %Y")
+        include_recent_sources = st.checkbox(
+            f"Include recent sources (May 2025 - {current_month_year})", 
             value=True,
-            help="Search for pain point evidence from May 1-31, 2025 timeframe using Tavily date range filtering"
+            help=f"Search for pain point evidence from May 2025 to {current_month_year} using Tavily date range filtering"
         )
         
         st.markdown("How to use:")
         st.markdown("1. Ensure Tavily API key is set")
         st.markdown("2. Input target company details")
-        st.markdown("3. Enable May 2025 filtering for recent evidence")
+        st.markdown("3. Enable recent sources filtering for current evidence")
         st.markdown("4. Click Research Company")
         st.markdown("5. Review validated pain points with source URLs")
         st.markdown("6. Use evidence for client approach")
@@ -527,10 +538,11 @@ def main():
         - Evidence-based insights for client approach
         """)
         
-        if include_may_2025:
-            st.success("May 2025 filtering enabled - Using Tavily date range: 2025-05-01 to 2025-05-31")
+        if include_recent_sources:
+            current_date = datetime.now().strftime("%Y-%m-%d")
+            st.success(f"Recent sources filtering enabled - Using Tavily date range: 2025-05-01 to {current_date}")
         else:
-            st.info("Enable May 2025 filtering to get the most recent pain point evidence")
+            st.info("Enable recent sources filtering to get the most current pain point evidence")
     
     if not api_key:
         st.error("Please provide a Tavily API key to begin research")
@@ -547,16 +559,16 @@ def main():
             research_data, detailed_results = agent.research_company(
                 company_name, 
                 company_url, 
-                include_may_2025=include_may_2025
+                include_recent_sources=include_recent_sources
             )
             analysis = agent.analyze_company_fit(research_data)
         
         if analysis and research_data.get("research_points"):
-            display_pain_point_analysis(analysis, detailed_results, agent, include_may_2025)
+            display_pain_point_analysis(analysis, detailed_results, agent, include_recent_sources)
         else:
             st.error("Research failed or no data found. Please check the company name and try again.")
 
-def display_pain_point_analysis(analysis: Dict, detailed_results: List[Dict], agent: TavilyResearchAgent, include_may_2025: bool = False):
+def display_pain_point_analysis(analysis: Dict, detailed_results: List[Dict], agent: TavilyResearchAgent, include_recent_sources: bool = False):
     """Display comprehensive analysis with focus on pain points and source evidence"""
     
     st.markdown("---")
@@ -576,17 +588,19 @@ def display_pain_point_analysis(analysis: Dict, detailed_results: List[Dict], ag
         services_count = len(analysis.get('potential_iNube_services', []))
         st.metric("Recommended Solutions", services_count)
     
-    # May 2025 Sources Section
-    if include_may_2025 and analysis.get('may_2025_sources'):
+    # Recent Sources Section
+    if include_recent_sources and analysis.get('recent_sources'):
         st.markdown("---")
-        st.header("May 2025 Specific Sources")
+        st.header("Recent Sources (May 2025 - Present)")
         
-        st.success(f"Found {len(analysis['may_2025_sources'])} sources from May 2025 timeframe (2025-05-01 to 2025-05-31)")
+        current_month_year = datetime.now().strftime("%B %Y")
+        st.success(f"Found {len(analysis['recent_sources'])} sources from May 2025 to {current_month_year}")
         
-        for i, source in enumerate(analysis['may_2025_sources']):
-            with st.expander(f"May 2025 Source {i+1}: {source['title']}", expanded=i==0):
+        for i, source in enumerate(analysis['recent_sources']):
+            with st.expander(f"Recent Source {i+1}: {source['title']}", expanded=i==0):
                 st.markdown(f"**URL**: {source['url']}")
                 st.markdown(f"**Search Query**: {source['query']}")
+                st.markdown(f"**Date Range**: {source['date_range']}")
                 st.markdown(f"**Content Preview**: {source['content']}")
                 st.markdown("---")
     
@@ -599,7 +613,7 @@ def display_pain_point_analysis(analysis: Dict, detailed_results: List[Dict], ag
     else:
         st.warning("No client potential assessment available.")
     
-    # Pain Points Section - Separate May 2025 and general sources
+    # Pain Points Section - Separate recent and general sources
     st.markdown("---")
     st.header("Validated Pain Points with Source Evidence")
     
@@ -608,17 +622,18 @@ def display_pain_point_analysis(analysis: Dict, detailed_results: List[Dict], ag
     if not pain_points:
         st.warning("No validated pain points found with source evidence.")
     else:
-        # Separate May 2025 pain points
-        may_2025_pain_points = [pp for pp in pain_points if pp.get('time_period') == 'May 2025']
-        general_pain_points = [pp for pp in pain_points if pp.get('time_period') != 'May 2025']
+        # Separate recent pain points
+        recent_pain_points = [pp for pp in pain_points if pp.get('time_period') == 'Recent']
+        general_pain_points = [pp for pp in pain_points if pp.get('time_period') != 'Recent']
         
-        # Display May 2025 pain points first
-        if may_2025_pain_points:
-            st.subheader("Recent Pain Points (May 2025)")
-            st.info(f"Found {len(may_2025_pain_points)} pain point evidence sources from May 2025")
+        # Display recent pain points first
+        if recent_pain_points:
+            current_month_year = datetime.now().strftime("%B %Y")
+            st.subheader(f"Recent Pain Points (May 2025 - {current_month_year})")
+            st.info(f"Found {len(recent_pain_points)} pain point evidence sources from recent timeframe")
             
-            for pain_point in may_2025_pain_points:
-                with st.expander(f"RECENT: {pain_point['pain_point_name']} - May 2025 Evidence", expanded=True):
+            for pain_point in recent_pain_points:
+                with st.expander(f"RECENT: {pain_point['pain_point_name']} - Current Evidence", expanded=True):
                     if pain_point["iNube_solutions"]:
                         solutions = [s.replace('_', ' ').title() for s in pain_point["iNube_solutions"]]
                         st.success(f"iNube Solutions: {', '.join(solutions)}")
@@ -638,8 +653,11 @@ def display_pain_point_analysis(analysis: Dict, detailed_results: List[Dict], ag
                     pain_point_groups[pp["pain_point_id"]] = []
                 pain_point_groups[pp["pain_point_id"]].append(pp)
             
+            section_title = "General Pain Points" if recent_pain_points else "All Pain Points"
+            st.subheader(section_title)
+            
             for pain_point_id, evidences in pain_point_groups.items():
-                with st.expander(f"{pain_point_id.replace('_', ' ').title()} - {len(evidences)} evidence source(s)", expanded=len(may_2025_pain_points)==0):
+                with st.expander(f"{pain_point_id.replace('_', ' ').title()} - {len(evidences)} evidence source(s)", expanded=len(recent_pain_points)==0):
                     
                     if evidences[0]["iNube_solutions"]:
                         solutions = [s.replace('_', ' ').title() for s in evidences[0]["iNube_solutions"]]
@@ -699,18 +717,19 @@ def display_pain_point_analysis(analysis: Dict, detailed_results: List[Dict], ag
     st.subheader("Research Sources")
     sources = analysis.get('sources', [])
     if sources:
-        # Separate May 2025 and general sources
-        may_sources = [s for s in sources if s.get('time_period') == 'May 2025']
-        general_sources = [s for s in sources if s.get('time_period') != 'May 2025']
+        # Separate recent and general sources
+        recent_sources = [s for s in sources if s.get('time_period', '').startswith('Recent')]
+        general_sources = [s for s in sources if not s.get('time_period', '').startswith('Recent')]
         
-        if may_sources:
-            st.markdown("**May 2025 Sources:**")
-            for i, source in enumerate(may_sources):
+        if recent_sources:
+            st.markdown("**Recent Sources (May 2025 - Present):**")
+            for i, source in enumerate(recent_sources):
                 st.markdown(f"{i+1}. {source.get('title', 'No title')} - {source.get('url', 'No URL')}")
         
         if general_sources:
             st.markdown("**General Sources:**")
-            for i, source in enumerate(general_sources, start=len(may_sources)+1):
+            start_num = len(recent_sources) + 1
+            for i, source in enumerate(general_sources, start=start_num):
                 st.markdown(f"{i}. {source.get('title', 'No title')} - {source.get('url', 'No URL')}")
     else:
         st.info("No sources available")
