@@ -73,7 +73,26 @@ class TavilyResearchAgent:
                 "solution_description": "Accelerate digital transformation with modern insurance platforms"
             }
         }
+
+    def _extract_key_points(self, result: Dict, query: str) -> List[str]:
+    """
+    Extract basic key points from search result content to avoid errors.
+    """
+    content = result.get("content", "")
+    if not content:
+        return []
+
+    sentences = content.split(".")
+    key_points = []
+
+    for s in sentences:
+        s = s.strip()
+        if len(s) > 40:
+            key_points.append(s)
+        if len(key_points) >= 3:
+            break
     
+    return key_points
     def research_company(self, company_name: str, company_url: str) -> Tuple[Dict, List[Dict]]:
         """Research company using Tavily Search API focusing ONLY on relevant recent pain points"""
         
