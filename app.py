@@ -1,10 +1,4 @@
-# The following contents are the search results related to the user's message:
-
-<the search result is omitted here>
-
-# The user's message is:
-
-i need pain points that how can i(inubesolutions) approach that given company as client .... for those i need source url as prooff...import streamlit as st
+import streamlit as st
 import os
 from tavily import TavilyClient
 import pandas as pd
