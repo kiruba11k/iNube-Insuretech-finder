@@ -278,7 +278,7 @@ class TavilyResearchAgent:
         summary_parts.append(f"**Sources Analyzed**: {recent_sources_count} recent sources")
         summary_parts.append("")
         
-        summary_parts.append("### 🎯 Recent Pain Points Identified")
+        summary_parts.append("###  Recent Pain Points Identified")
         summary_parts.append(f"Found {len(pain_points)} validated pain points across {len(pain_point_groups)} key areas:")
         
         for pain_point_id, evidences in pain_point_groups.items():
@@ -294,7 +294,7 @@ class TavilyResearchAgent:
             summary_parts.append(f"- **{pain_point_name}**: {source_count} evidence sources ({sources_text})")
         
         summary_parts.append("")
-        summary_parts.append("### 🔧 iNube Solutions Alignment")
+        summary_parts.append("###  iNube Solutions Alignment")
         
         if analysis["potential_iNube_services"]:
             solutions = [s.replace('_', ' ').title() for s in analysis["potential_iNube_services"]]
@@ -312,7 +312,7 @@ class TavilyResearchAgent:
             summary_parts.append("No specific iNube solutions identified for the pain points found.")
         
         summary_parts.append("")
-        summary_parts.append("### 📊 Assessment Summary")
+        summary_parts.append("###  Assessment Summary")
         summary_parts.append(f"- **Industry**: {analysis.get('industry', 'Unknown')}")
         summary_parts.append(f"- **Confidence Score**: {analysis.get('confidence_score', 0)}%")
         summary_parts.append(f"- **Pain Points Found**: {len(pain_points)}")
@@ -338,36 +338,28 @@ class TavilyResearchAgent:
 def main():
     st.title("iNube Solutions - Recent Client Potential Analysis")
     st.markdown("**Analyzing companies for pain points from May 2025 to present**")
-    
+
     # Sidebar configuration
     with st.sidebar:
         st.header("Configuration")
-        
+
         api_key = st.secrets.get("TAVILY", None)
-        
+
         if not api_key:
             st.warning("Tavily API key not found in secrets. Please enter it below:")
-            api_key = st.text_input("Tavily API Key", type="password", 
-                                   help="Get your API key from https://tavily.com")
+            api_key = st.text_input("Tavily API Key", type="password")
         else:
             st.success("Tavily API key loaded from secrets")
-        
-        st.markdown("---")
-        
-        current_month_year = datetime.now().strftime("%B %Y")
-        st.info(f"**Search Range**: May 2025 - {current_month_year}")
-        
-        st.markdown("**How to use:**")
-        st.markdown("1. Ensure Tavily API key is set")
-        st.markdown("2. Input target company details")
-        st.markdown("3. Click Research Company")
-        st.markdown("4. Review recent pain points and iNube alignment")
-        
+
+    #  Initialize agent AFTER reading key
+    agent = TavilyResearchAgent(api_key)
+
+    # Now you can safely use agent in sidebar or main page
+    with st.sidebar:
         st.markdown("---")
         st.markdown("**iNube Solutions:**")
-        for service_id, service_desc in self.iNube_services.items():
+        for service_id, service_desc in agent.iNube_services.items():
             st.markdown(f"- {service_id.replace('_', ' ').title()}: {service_desc}")
-
     # Main input section
     col1, col2 = st.columns([1, 1])
     
@@ -433,7 +425,7 @@ def display_client_analysis(analysis: Dict, agent: TavilyResearchAgent):
     st.markdown("---")
     
     # Final Recommendation
-    st.subheader("🎯 Final Recommendation")
+    st.subheader(" Final Recommendation")
     recommendation = analysis.get('recommendation', 'No recommendation available')
     if "STRONG" in recommendation:
         st.success(recommendation)
@@ -444,7 +436,7 @@ def display_client_analysis(analysis: Dict, agent: TavilyResearchAgent):
     
     # Recent Sources
     st.markdown("---")
-    st.subheader("📚 Recent Sources Analyzed")
+    st.subheader(" Recent Sources Analyzed")
     
     recent_sources = analysis.get('recent_sources', [])
     if recent_sources:
