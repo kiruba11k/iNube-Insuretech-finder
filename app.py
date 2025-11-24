@@ -67,12 +67,12 @@ class TavilyResearchAgent:
             }
         }
     
-    def research_company(self, company_name: str, company_url: str) -> Tuple[Dict, List[Dict]]:
+    def research_company(self, company_name: str, company_url: str, include_may_2025: bool = False) -> Tuple[Dict, List[Dict]]:
         """Research company using Tavily Search API with focus on pain points"""
         
-        # Enhanced search queries specifically for pain points and challenges
-        search_queries = [
-            f"{company_name} challenges problems issues difficulties 2024",
+        # Base search queries
+        base_queries = [
+            f"{company_name} challenges problems issues difficulties",
             f"{company_name} digital transformation legacy systems modernization",
             f"{company_name} operational efficiency cost reduction manual processes",
             f"{company_name} customer experience policyholder satisfaction churn",
@@ -88,15 +88,17 @@ class TavilyResearchAgent:
             "company_url": company_url,
             "sources": [],
             "research_points": [],
-            "identified_pain_points": []
+            "identified_pain_points": [],
+            "may_2025_sources": []
         }
         
-        for query in search_queries:
+        # First, do general searches without date restriction
+        for query in base_queries:
             try:
                 response = self.client.search(
                     query=query,
                     search_depth="advanced",
-                    max_results=5,
+                    max_results=3,  # Reduced to allow for May 2025 searches
                     include_answer=True
                 )
                 
@@ -106,7 +108,8 @@ class TavilyResearchAgent:
                             "title": result.get('title', ''),
                             "url": result.get('url', ''),
                             "content": result.get('content', ''),
-                            "query": query
+                            "query": query,
+                            "time_period": "General"
                         }
                         all_results.append(source_info)
                         
@@ -115,15 +118,67 @@ class TavilyResearchAgent:
                         
                         pain_points = self._extract_pain_points(result, query)
                         analysis_data["identified_pain_points"].extend(pain_points)
-                        
+                
                 time.sleep(1)
                         
             except Exception as e:
                 st.error(f"Error in search query '{query}': {str(e)}")
                 continue
         
+        # Then, do May 2025 specific searches if requested
+        if include_may_2025:
+            may_2025_queries = [
+                f"{company_name} challenges 2025",
+                f"{company_name} technology issues 2025", 
+                f"{company_name} digital transformation 2025",
+                f"{company_name} operational efficiency 2025",
+                f"{company_name} customer experience 2025",
+                f"{company_name} insurance challenges 2025"
+            ]
+            
+            for query in may_2025_queries:
+                try:
+                    response = self.client.search(
+                        query=query,
+                        search_depth="advanced",
+                        max_results=3,
+                        include_answer=True,
+                        # Set date range for May 2025
+                        start_date="2025-05-01",
+                        end_date="2025-05-31"
+                    )
+                    
+                    if response and 'results' in response:
+                        for result in response['results']:
+                            source_info = {
+                                "title": result.get('title', ''),
+                                "url": result.get('url', ''),
+                                "content": result.get('content', ''),
+                                "query": query,
+                                "time_period": "May 2025"
+                            }
+                            all_results.append(source_info)
+                            analysis_data["may_2025_sources"].append({
+                                "title": result.get('title', ''),
+                                "url": result.get('url', ''),
+                                "content": result.get('content', '')[:500] + "..." if len(result.get('content', '')) > 500 else result.get('content', ''),
+                                "query": query
+                            })
+                            
+                            points = self._extract_key_points(result, query)
+                            analysis_data["research_points"].extend(points)
+                            
+                            pain_points = self._extract_pain_points(result, query)
+                            analysis_data["identified_pain_points"].extend(pain_points)
+                    
+                    time.sleep(1)
+                            
+                except Exception as e:
+                    st.error(f"Error in May 2025 search query '{query}': {str(e)}")
+                    continue
+        
         if all_results:
-            analysis_data["sources"] = [{"url": r["url"], "title": r["title"]} for r in all_results]
+            analysis_data["sources"] = [{"url": r["url"], "title": r["title"], "time_period": r.get("time_period", "General")} for r in all_results]
             analysis_data["sources"] = [dict(t) for t in {tuple(d.items()) for d in analysis_data["sources"]}]
         
         return analysis_data, all_results
@@ -153,7 +208,8 @@ class TavilyResearchAgent:
                             "source_title": title,
                             "keyword_found": keyword,
                             "iNube_solutions": pain_point_data["iNube_solutions"],
-                            "confidence": "high" if len(context) > 100 else "medium"
+                            "confidence": "high" if len(context) > 100 else "medium",
+                            "time_period": "May 2025" if "2025" in query else "General"
                         })
                     break
         
@@ -189,7 +245,8 @@ class TavilyResearchAgent:
                         "category": category,
                         "source_url": url,
                         "source_title": title,
-                        "relevance": "medium"
+                        "relevance": "medium",
+                        "time_period": "May 2025" if "2025" in query else "General"
                     })
                     break
         
@@ -212,7 +269,8 @@ class TavilyResearchAgent:
             "confidence_score": 0,
             "sources": research_data.get("sources", []),
             "pain_point_analysis": "",
-            "client_potential_summary": ""
+            "client_potential_summary": "",
+            "may_2025_sources": research_data.get("may_2025_sources", [])
         }
         
         pain_point_count = len(analysis["validated_pain_points"])
@@ -279,23 +337,35 @@ class TavilyResearchAgent:
         if not pain_points:
             return "Limited client potential identified. No validated pain points with source evidence found."
         
-        # Group pain points by category
+        # Group pain points by category and time period
         pain_point_groups = {}
+        may_2025_count = 0
+        
         for pp in pain_points:
             if pp["pain_point_id"] not in pain_point_groups:
                 pain_point_groups[pp["pain_point_id"]] = []
             pain_point_groups[pp["pain_point_id"]].append(pp)
+            
+            if pp.get("time_period") == "May 2025":
+                may_2025_count += 1
         
         summary_parts = []
         summary_parts.append(f"Based on our research, {analysis['company_name']} demonstrates strong client potential for iNube Solutions due to validated business challenges across {len(pain_point_groups)} key areas.")
+        
+        # Highlight May 2025 findings if available
+        if may_2025_count > 0:
+            summary_parts.append(f" Found {may_2025_count} recent pain point evidence sources from May 2025.")
         
         # Add pain point specific summaries
         for pain_point_id, evidences in pain_point_groups.items():
             pain_point_name = pain_point_id.replace('_', ' ').title()
             source_count = len(evidences)
+            may_2025_sources = [ev for ev in evidences if ev.get('time_period') == 'May 2025']
+            recent_indicator = " (Recent)" if may_2025_sources else ""
+            
             sources_links = ", ".join([f"[Source {i+1}]({ev['source_url']})" for i, ev in enumerate(evidences[:2])])
             
-            summary_parts.append(f"\n- **{pain_point_name}**: {source_count} validated evidence sources ({sources_links})")
+            summary_parts.append(f"\n- **{pain_point_name}**: {source_count} validated evidence sources{recent_indicator} ({sources_links})")
         
         # Add iNube solutions match
         if analysis["potential_iNube_services"]:
@@ -315,14 +385,24 @@ class TavilyResearchAgent:
             return "No specific pain points identified with supporting evidence."
         
         pain_point_groups = {}
+        may_2025_count = 0
+        
         for pp in analysis["validated_pain_points"]:
             if pp["pain_point_id"] not in pain_point_groups:
                 pain_point_groups[pp["pain_point_id"]] = []
             pain_point_groups[pp["pain_point_id"]].append(pp)
+            
+            if pp.get("time_period") == "May 2025":
+                may_2025_count += 1
         
         analysis_parts = []
         for pain_point_id, evidences in pain_point_groups.items():
-            analysis_parts.append(f"{pain_point_id.replace('_', ' ').title()}: {len(evidences)} evidence sources")
+            may_sources = len([ev for ev in evidences if ev.get('time_period') == 'May 2025'])
+            recent_indicator = f" ({may_sources} recent)" if may_sources > 0 else ""
+            analysis_parts.append(f"{pain_point_id.replace('_', ' ').title()}: {len(evidences)} sources{recent_indicator}")
+        
+        if may_2025_count > 0:
+            analysis_parts.append(f"| May 2025 sources: {may_2025_count}")
             
         return " | ".join(analysis_parts)
     
@@ -336,7 +416,11 @@ class TavilyResearchAgent:
         
         pain_point_count = len(analysis["validated_pain_points"])
         if pain_point_count > 0:
-            justification_parts.append(f"Found {pain_point_count} validated pain points with source evidence.")
+            may_2025_count = len([pp for pp in analysis["validated_pain_points"] if pp.get('time_period') == 'May 2025'])
+            if may_2025_count > 0:
+                justification_parts.append(f"Found {pain_point_count} validated pain points ({may_2025_count} from May 2025) with source evidence.")
+            else:
+                justification_parts.append(f"Found {pain_point_count} validated pain points with source evidence.")
         
         if analysis["digital_maturity"] in ["low", "medium"]:
             justification_parts.append(f"Digital maturity level ({analysis['digital_maturity']}) indicates technology gaps.")
@@ -352,11 +436,18 @@ class TavilyResearchAgent:
         
         confidence = analysis["confidence_score"]
         pain_point_count = len(analysis["validated_pain_points"])
+        may_2025_count = len([pp for pp in analysis["validated_pain_points"] if pp.get('time_period') == 'May 2025'])
 
         if confidence >= 70 and pain_point_count >= 2:
-            return "STRONG RECOMMENDATION - Multiple validated pain points found with source evidence"
+            if may_2025_count > 0:
+                return "STRONG RECOMMENDATION - Multiple validated pain points found with recent May 2025 source evidence"
+            else:
+                return "STRONG RECOMMENDATION - Multiple validated pain points found with source evidence"
         elif confidence >= 50 and pain_point_count >= 1:
-            return "MODERATE RECOMMENDATION - Validated pain points identified with source URLs"
+            if may_2025_count > 0:
+                return "MODERATE RECOMMENDATION - Validated pain points identified with recent May 2025 source URLs"
+            else:
+                return "MODERATE RECOMMENDATION - Validated pain points identified with source URLs"
         elif confidence >= 30:
             return "WEAK RECOMMENDATION - Some challenges identified but limited pain point evidence"
         else:
@@ -380,12 +471,22 @@ def main():
             st.success("Tavily API key loaded from secrets")
         
         st.markdown("---")
+        
+        # Date filtering option
+        st.subheader("Date Filtering")
+        include_may_2025 = st.checkbox(
+            "Include May 2025 specific sources", 
+            value=True,
+            help="Search for pain point evidence from May 1-31, 2025 timeframe using Tavily date range filtering"
+        )
+        
         st.markdown("How to use:")
         st.markdown("1. Ensure Tavily API key is set")
         st.markdown("2. Input target company details")
-        st.markdown("3. Click Research Company")
-        st.markdown("4. Review validated pain points with source URLs")
-        st.markdown("5. Use evidence for client approach")
+        st.markdown("3. Enable May 2025 filtering for recent evidence")
+        st.markdown("4. Click Research Company")
+        st.markdown("5. Review validated pain points with source URLs")
+        st.markdown("6. Use evidence for client approach")
         
         st.markdown("---")
         st.markdown("Pain Points We Detect:")
@@ -420,14 +521,16 @@ def main():
         st.markdown("""
         The agent will specifically search for:
         - Validated pain points with source URLs as proof
-        - Operational challenges and technology gaps
+        - Operational challenges and technology gaps  
         - Digital transformation initiatives and struggles
         - Customer experience issues and retention challenges
         - Evidence-based insights for client approach
         """)
         
-        st.info("Key Feature: Every pain point includes source URL evidence for your client conversations.")
-
+        if include_may_2025:
+            st.success("May 2025 filtering enabled - Using Tavily date range: 2025-05-01 to 2025-05-31")
+        else:
+            st.info("Enable May 2025 filtering to get the most recent pain point evidence")
     
     if not api_key:
         st.error("Please provide a Tavily API key to begin research")
@@ -441,15 +544,19 @@ def main():
     
     if research_button and company_name:
         with st.spinner(f"Researching {company_name} for validated pain points with source evidence... This may take 2-3 minutes."):
-            research_data, detailed_results = agent.research_company(company_name, company_url)
+            research_data, detailed_results = agent.research_company(
+                company_name, 
+                company_url, 
+                include_may_2025=include_may_2025
+            )
             analysis = agent.analyze_company_fit(research_data)
         
         if analysis and research_data.get("research_points"):
-            display_pain_point_analysis(analysis, detailed_results, agent)
+            display_pain_point_analysis(analysis, detailed_results, agent, include_may_2025)
         else:
             st.error("Research failed or no data found. Please check the company name and try again.")
 
-def display_pain_point_analysis(analysis: Dict, detailed_results: List[Dict], agent: TavilyResearchAgent):
+def display_pain_point_analysis(analysis: Dict, detailed_results: List[Dict], agent: TavilyResearchAgent, include_may_2025: bool = False):
     """Display comprehensive analysis with focus on pain points and source evidence"""
     
     st.markdown("---")
@@ -469,7 +576,21 @@ def display_pain_point_analysis(analysis: Dict, detailed_results: List[Dict], ag
         services_count = len(analysis.get('potential_iNube_services', []))
         st.metric("Recommended Solutions", services_count)
     
-    # NEW: Client Potential Summary Section
+    # May 2025 Sources Section
+    if include_may_2025 and analysis.get('may_2025_sources'):
+        st.markdown("---")
+        st.header("May 2025 Specific Sources")
+        
+        st.success(f"Found {len(analysis['may_2025_sources'])} sources from May 2025 timeframe (2025-05-01 to 2025-05-31)")
+        
+        for i, source in enumerate(analysis['may_2025_sources']):
+            with st.expander(f"May 2025 Source {i+1}: {source['title']}", expanded=i==0):
+                st.markdown(f"**URL**: {source['url']}")
+                st.markdown(f"**Search Query**: {source['query']}")
+                st.markdown(f"**Content Preview**: {source['content']}")
+                st.markdown("---")
+    
+    # Client Potential Summary Section
     st.markdown("---")
     st.header("Client Potential Assessment")
     
@@ -478,41 +599,60 @@ def display_pain_point_analysis(analysis: Dict, detailed_results: List[Dict], ag
     else:
         st.warning("No client potential assessment available.")
     
-    # Pain Points Section
+    # Pain Points Section - Separate May 2025 and general sources
     st.markdown("---")
     st.header("Validated Pain Points with Source Evidence")
     
     pain_points = analysis.get('validated_pain_points', [])
     
     if not pain_points:
-        st.warning("""
-        No validated pain points found with source evidence. This could mean:
-        - The company doesn't publicly discuss their challenges
-        - The search didn't find specific pain point evidence
-        - Try researching with different search terms or check if the company is publicly traded (more public information)
-        """)
+        st.warning("No validated pain points found with source evidence.")
     else:
-        pain_point_groups = {}
-        for pp in pain_points:
-            if pp["pain_point_id"] not in pain_point_groups:
-                pain_point_groups[pp["pain_point_id"]] = []
-            pain_point_groups[pp["pain_point_id"]].append(pp)
+        # Separate May 2025 pain points
+        may_2025_pain_points = [pp for pp in pain_points if pp.get('time_period') == 'May 2025']
+        general_pain_points = [pp for pp in pain_points if pp.get('time_period') != 'May 2025']
         
-        for pain_point_id, evidences in pain_point_groups.items():
-            with st.expander(f"{pain_point_id.replace('_', ' ').title()} - {len(evidences)} evidence source(s)", expanded=True):
-                
-                if evidences[0]["iNube_solutions"]:
-                    solutions = [s.replace('_', ' ').title() for s in evidences[0]["iNube_solutions"]]
-                    st.success(f"iNube Solutions: {', '.join(solutions)}")
-                
-                for i, evidence in enumerate(evidences):
-                    st.markdown(f"**Evidence #{i+1}**")
-                    st.markdown(f"Source: [{evidence['source_title']}]({evidence['source_url']})")
-                    st.markdown(f"**Context**: {evidence['evidence']}")
-                    st.markdown(f"Keyword identified: {evidence['keyword_found']}")
+        # Display May 2025 pain points first
+        if may_2025_pain_points:
+            st.subheader("Recent Pain Points (May 2025)")
+            st.info(f"Found {len(may_2025_pain_points)} pain point evidence sources from May 2025")
+            
+            for pain_point in may_2025_pain_points:
+                with st.expander(f"RECENT: {pain_point['pain_point_name']} - May 2025 Evidence", expanded=True):
+                    if pain_point["iNube_solutions"]:
+                        solutions = [s.replace('_', ' ').title() for s in pain_point["iNube_solutions"]]
+                        st.success(f"iNube Solutions: {', '.join(solutions)}")
+                    
+                    st.markdown(f"**Source**: [{pain_point['source_title']}]({pain_point['source_url']})")
+                    st.markdown(f"**Evidence**: {pain_point['evidence']}")
+                    st.markdown(f"**Keyword Identified**: `{pain_point['keyword_found']}`")
+                    st.markdown(f"**Time Period**: {pain_point['time_period']}")
+                    st.markdown(f"**Confidence**: {pain_point['confidence'].title()}")
                     st.markdown("---")
-    
-    # Traditional analysis
+        
+        # Display general pain points
+        if general_pain_points:
+            pain_point_groups = {}
+            for pp in general_pain_points:
+                if pp["pain_point_id"] not in pain_point_groups:
+                    pain_point_groups[pp["pain_point_id"]] = []
+                pain_point_groups[pp["pain_point_id"]].append(pp)
+            
+            for pain_point_id, evidences in pain_point_groups.items():
+                with st.expander(f"{pain_point_id.replace('_', ' ').title()} - {len(evidences)} evidence source(s)", expanded=len(may_2025_pain_points)==0):
+                    
+                    if evidences[0]["iNube_solutions"]:
+                        solutions = [s.replace('_', ' ').title() for s in evidences[0]["iNube_solutions"]]
+                        st.success(f"iNube Solutions: {', '.join(solutions)}")
+                    
+                    for i, evidence in enumerate(evidences):
+                        st.markdown(f"**Evidence #{i+1}**")
+                        st.markdown(f"Source: [{evidence['source_title']}]({evidence['source_url']})")
+                        st.markdown(f"**Context**: {evidence['evidence']}")
+                        st.markdown(f"Keyword identified: {evidence['keyword_found']}")
+                        st.markdown("---")
+
+    # Rest of the display functions remain the same...
     if detailed_results:
         st.markdown("---")
         st.subheader("Detailed Research Findings")
@@ -522,6 +662,7 @@ def display_pain_point_analysis(analysis: Dict, detailed_results: List[Dict], ag
             research_table_data.append({
                 "Source Title": result.get('title', 'N/A'),
                 "URL": result.get('url', 'N/A'),
+                "Time Period": result.get('time_period', 'General'),
                 "Key Content": result.get('content', '')[:200] + "..." if len(result.get('content', '')) > 200 else result.get('content', 'N/A'),
                 "Search Query": result.get('query', 'N/A')
             })
@@ -558,8 +699,19 @@ def display_pain_point_analysis(analysis: Dict, detailed_results: List[Dict], ag
     st.subheader("Research Sources")
     sources = analysis.get('sources', [])
     if sources:
-        for i, source in enumerate(sources):
-            st.markdown(f"{i+1}. {source.get('title', 'No title')} - {source.get('url', 'No URL')}")
+        # Separate May 2025 and general sources
+        may_sources = [s for s in sources if s.get('time_period') == 'May 2025']
+        general_sources = [s for s in sources if s.get('time_period') != 'May 2025']
+        
+        if may_sources:
+            st.markdown("**May 2025 Sources:**")
+            for i, source in enumerate(may_sources):
+                st.markdown(f"{i+1}. {source.get('title', 'No title')} - {source.get('url', 'No URL')}")
+        
+        if general_sources:
+            st.markdown("**General Sources:**")
+            for i, source in enumerate(general_sources, start=len(may_sources)+1):
+                st.markdown(f"{i}. {source.get('title', 'No title')} - {source.get('url', 'No URL')}")
     else:
         st.info("No sources available")
     
@@ -576,6 +728,7 @@ def display_pain_point_analysis(analysis: Dict, detailed_results: List[Dict], ag
             "Evidence": pp["evidence"],
             "Source_URL": pp["source_url"],
             "Source_Title": pp["source_title"],
+            "Time_Period": pp.get("time_period", "General"),
             "iNube_Solutions": ", ".join([s.replace('_', ' ').title() for s in pp["iNube_solutions"]]),
             "Confidence": pp["confidence"]
         })
@@ -586,6 +739,7 @@ def display_pain_point_analysis(analysis: Dict, detailed_results: List[Dict], ag
         "Evidence": analysis.get('recommendation', ''),
         "Source_URL": analysis.get('company_url', ''),
         "Source_Title": "Analysis Summary",
+        "Time_Period": "Analysis",
         "iNube_Solutions": ", ".join([s.replace('_', ' ').title() for s in analysis.get('potential_iNube_services', [])]),
         "Confidence": f"{analysis.get('confidence_score', 0)}%"
     })
