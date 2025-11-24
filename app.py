@@ -9,7 +9,7 @@ import time
 # Page configuration
 st.set_page_config(
     page_title="iNube Solutions Pain Point Research Agent",
-    page_icon="🔍",
+    page_icon="",
     layout="wide"
 )
 
@@ -88,7 +88,7 @@ class TavilyResearchAgent:
             "company_url": company_url,
             "sources": [],
             "research_points": [],
-            "identified_pain_points": []  # New: specifically for validated pain points
+            "identified_pain_points": []
         }
         
         for query in search_queries:
@@ -110,22 +110,18 @@ class TavilyResearchAgent:
                         }
                         all_results.append(source_info)
                         
-                        # Extract key points and pain points from this source
                         points = self._extract_key_points(result, query)
                         analysis_data["research_points"].extend(points)
                         
-                        # Extract validated pain points with proof
                         pain_points = self._extract_pain_points(result, query)
                         analysis_data["identified_pain_points"].extend(pain_points)
                         
-                # Add delay to avoid rate limiting
                 time.sleep(1)
                         
             except Exception as e:
                 st.error(f"Error in search query '{query}': {str(e)}")
                 continue
         
-        # Extract unique sources
         if all_results:
             analysis_data["sources"] = [{"url": r["url"], "title": r["title"]} for r in all_results]
             analysis_data["sources"] = [dict(t) for t in {tuple(d.items()) for d in analysis_data["sources"]}]
@@ -144,12 +140,10 @@ class TavilyResearchAgent:
         for pain_point_id, pain_point_data in self.pain_points_mapping.items():
             for keyword in pain_point_data["keywords"]:
                 if keyword in content_lower:
-                    # Extract context around the pain point
                     start_idx = max(0, content_lower.find(keyword) - 150)
                     end_idx = min(len(content), content_lower.find(keyword) + 300)
                     context = content[start_idx:end_idx].strip()
                     
-                    # Only add if we have substantial context
                     if len(context) > 50:
                         pain_points.append({
                             "pain_point_id": pain_point_id,
@@ -161,7 +155,7 @@ class TavilyResearchAgent:
                             "iNube_solutions": pain_point_data["iNube_solutions"],
                             "confidence": "high" if len(context) > 100 else "medium"
                         })
-                    break  # One pain point per category per source
+                    break
         
         return pain_points
     
@@ -172,7 +166,6 @@ class TavilyResearchAgent:
         title = result.get('title', '')
         url = result.get('url', '')
         
-        # Define categories and keywords to look for
         categories = {
             "business_model": ["services", "products", "business model", "offering", "solutions", "revenue"],
             "technology": ["technology", "digital", "software", "platform", "AI", "automation", "cloud", "IT"],
@@ -182,13 +175,11 @@ class TavilyResearchAgent:
             "insurance": ["insurance", "policy", "claim", "underwriting", "premium", "risk", "coverage"]
         }
         
-        # Convert content to lowercase for matching
         content_lower = content.lower()
         
         for category, keywords in categories.items():
             for keyword in keywords:
                 if keyword in content_lower:
-                    # Extract context around the keyword
                     start_idx = max(0, content_lower.find(keyword) - 100)
                     end_idx = min(len(content), content_lower.find(keyword) + 200)
                     context = content[start_idx:end_idx].strip()
@@ -200,7 +191,7 @@ class TavilyResearchAgent:
                         "source_title": title,
                         "relevance": "medium"
                     })
-                    break  # One point per category per source
+                    break
         
         return points
     
@@ -220,14 +211,13 @@ class TavilyResearchAgent:
             "recommendation": "",
             "confidence_score": 0,
             "sources": research_data.get("sources", []),
-            "pain_point_analysis": ""
+            "pain_point_analysis": "",
+            "client_potential_summary": ""
         }
         
-        # Calculate pain point based metrics
         pain_point_count = len(analysis["validated_pain_points"])
         unique_pain_points = set([pp["pain_point_id"] for pp in analysis["validated_pain_points"]])
         
-        # Analyze research points to populate the analysis
         tech_keywords = ["legacy", "modernization", "digital", "automation", "AI", "cloud", "technology", "software"]
         challenge_keywords = ["cost", "efficiency", "manual", "slow", "integration", "compliance", "challenge", "problem"]
         insurance_keywords = ["policy", "claim", "underwriting", "premium", "insurance", "risk", "coverage"]
@@ -239,24 +229,20 @@ class TavilyResearchAgent:
         for point in research_data.get("research_points", []):
             point_text = point["point"].lower()
             
-            # Check for insurance industry
             if any(keyword in point_text for keyword in insurance_keywords):
                 insurance_count += 1
                 analysis["industry"] = "Insurance"
             
-            # Check for technology mentions
             if any(keyword in point_text for keyword in tech_keywords):
                 tech_count += 1
                 if point["point"] not in analysis["technology_stack"]:
                     analysis["technology_stack"].append(point["point"])
             
-            # Check for challenges
             if any(keyword in point_text for keyword in challenge_keywords):
                 challenge_count += 1
                 if point["point"] not in analysis["identified_challenges"]:
                     analysis["identified_challenges"].append(point["point"])
         
-        # Determine digital maturity based on technology mentions
         if tech_count > 5:
             analysis["digital_maturity"] = "high"
         elif tech_count > 2:
@@ -264,33 +250,64 @@ class TavilyResearchAgent:
         else:
             analysis["digital_maturity"] = "low"
         
-        # Determine potential iNube services based on validated pain points
         all_recommended_services = []
         for pain_point in analysis["validated_pain_points"]:
             all_recommended_services.extend(pain_point["iNube_solutions"])
         
-        # Remove duplicates and limit
         analysis["potential_iNube_services"] = list(set(all_recommended_services))[:6]
         
-        # If no pain points found, fall back to basic service recommendation
         if not analysis["potential_iNube_services"] and (challenge_count > 0 or tech_count < 3):
             analysis["potential_iNube_services"] = list(self.iNube_services.keys())[:3]
         
-        # Calculate confidence score with pain point emphasis
         pain_point_score = min(50, pain_point_count * 15)
         tech_score = min(25, tech_count * 5)
         challenge_score = min(25, challenge_count * 5)
         
         analysis["confidence_score"] = min(100, pain_point_score + tech_score + challenge_score)
         
-        # Generate pain point analysis
         analysis["pain_point_analysis"] = self._generate_pain_point_analysis(analysis)
-        
-        # Generate justification and recommendation
+        analysis["client_potential_summary"] = self._generate_client_potential_summary(analysis)
         analysis["fit_justification"] = self._generate_justification(analysis, research_data)
         analysis["recommendation"] = self._generate_recommendation(analysis)
         
         return analysis
+    
+    def _generate_client_potential_summary(self, analysis: Dict) -> str:
+        """Generate comprehensive client potential summary based on pain points"""
+        pain_points = analysis.get("validated_pain_points", [])
+        
+        if not pain_points:
+            return "Limited client potential identified. No validated pain points with source evidence found."
+        
+        # Group pain points by category
+        pain_point_groups = {}
+        for pp in pain_points:
+            if pp["pain_point_id"] not in pain_point_groups:
+                pain_point_groups[pp["pain_point_id"]] = []
+            pain_point_groups[pp["pain_point_id"]].append(pp)
+        
+        summary_parts = []
+        summary_parts.append(f"Based on our research, {analysis['company_name']} demonstrates strong client potential for iNube Solutions due to validated business challenges across {len(pain_point_groups)} key areas.")
+        
+        # Add pain point specific summaries
+        for pain_point_id, evidences in pain_point_groups.items():
+            pain_point_name = pain_point_id.replace('_', ' ').title()
+            source_count = len(evidences)
+            sources_links = ", ".join([f"[Source {i+1}]({ev['source_url']})" for i, ev in enumerate(evidences[:2])])
+            
+            summary_parts.append(f"\n- **{pain_point_name}**: {source_count} validated evidence sources ({sources_links})")
+        
+        # Add iNube solutions match
+        if analysis["potential_iNube_services"]:
+            solutions = [s.replace('_', ' ').title() for s in analysis["potential_iNube_services"]]
+            summary_parts.append(f"\nThese pain points can be directly addressed by iNube's {', '.join(solutions[:3])} solutions.")
+        
+        # Add approach recommendation
+        if pain_point_groups:
+            primary_pain_point = list(pain_point_groups.keys())[0]
+            summary_parts.append(f"\nRecommended approach: Focus on {primary_pain_point.replace('_', ' ')} challenges with evidence-based proposals using the source URLs provided.")
+        
+        return "".join(summary_parts)
     
     def _generate_pain_point_analysis(self, analysis: Dict) -> str:
         """Generate detailed pain point analysis"""
@@ -305,7 +322,7 @@ class TavilyResearchAgent:
         
         analysis_parts = []
         for pain_point_id, evidences in pain_point_groups.items():
-            analysis_parts.append(f"**{pain_point_id.replace('_', ' ').title()}**: {len(evidences)} evidence sources")
+            analysis_parts.append(f"{pain_point_id.replace('_', ' ').title()}: {len(evidences)} evidence sources")
             
         return " | ".join(analysis_parts)
     
@@ -337,23 +354,22 @@ class TavilyResearchAgent:
         pain_point_count = len(analysis["validated_pain_points"])
 
         if confidence >= 70 and pain_point_count >= 2:
-            return "🚀 STRONG RECOMMENDATION - Multiple validated pain points found with source evidence"
+            return "STRONG RECOMMENDATION - Multiple validated pain points found with source evidence"
         elif confidence >= 50 and pain_point_count >= 1:
-            return "✅ MODERATE RECOMMENDATION - Validated pain points identified with source URLs"
+            return "MODERATE RECOMMENDATION - Validated pain points identified with source URLs"
         elif confidence >= 30:
-            return "⚠️ WEAK RECOMMENDATION - Some challenges identified but limited pain point evidence"
+            return "WEAK RECOMMENDATION - Some challenges identified but limited pain point evidence"
         else:
-            return "❌ INSUFFICIENT EVIDENCE - No validated pain points with source proof found"
+            return "INSUFFICIENT EVIDENCE - No validated pain points with source proof found"
 
 def main():
-    st.title("🔍 iNube Solutions Pain Point Research Agent")
-    st.markdown("**Validate company pain points with source URL evidence for targeted client approach**")
+    st.title("iNube Solutions Pain Point Research Agent")
+    st.markdown("Validate company pain points with source URL evidence for targeted client approach")
     
     # Sidebar configuration
     with st.sidebar:
         st.header("Configuration")
         
-        # Get API key from secrets or user input
         api_key = st.secrets.get("TAVILY", None)
         
         if not api_key:
@@ -364,15 +380,15 @@ def main():
             st.success("Tavily API key loaded from secrets")
         
         st.markdown("---")
-        st.markdown("**How to use:**")
+        st.markdown("How to use:")
         st.markdown("1. Ensure Tavily API key is set")
         st.markdown("2. Input target company details")
         st.markdown("3. Click Research Company")
-        st.markdown("4. Review **validated pain points with source URLs**")
+        st.markdown("4. Review validated pain points with source URLs")
         st.markdown("5. Use evidence for client approach")
         
         st.markdown("---")
-        st.markdown("**Pain Points We Detect:**")
+        st.markdown("Pain Points We Detect:")
         pain_points = {
             "legacy_systems": "Outdated technology infrastructure",
             "manual_processes": "Inefficient manual workflows", 
@@ -383,7 +399,7 @@ def main():
             "digital_transformation": "Slow digital adoption"
         }
         for pp_id, pp_desc in pain_points.items():
-            st.markdown(f"- **{pp_id.replace('_', ' ').title()}**: {pp_desc}")
+            st.markdown(f"- {pp_id.replace('_', ' ').title()}: {pp_desc}")
 
     # Main input section
     col1, col2 = st.columns([1, 1])
@@ -397,27 +413,26 @@ def main():
                                   value="https://www.shriramgi.com",
                                   placeholder="Enter company website URL")
         
-        research_button = st.button("🔎 Research Pain Points", type="primary", disabled=not api_key)
+        research_button = st.button("Research Pain Points", type="primary", disabled=not api_key)
     
     with col2:
         st.subheader("Research Focus")
         st.markdown("""
         The agent will specifically search for:
-        - **Validated pain points** with source URLs as proof
-        - **Operational challenges** and technology gaps
-        - **Digital transformation** initiatives and struggles
-        - **Customer experience** issues and retention challenges
-        - **Evidence-based insights** for client approach
+        - Validated pain points with source URLs as proof
+        - Operational challenges and technology gaps
+        - Digital transformation initiatives and struggles
+        - Customer experience issues and retention challenges
+        - Evidence-based insights for client approach
         """)
         
-        st.info("**Key Feature**: Every pain point includes source URL evidence for your client conversations.")
+        st.info("Key Feature: Every pain point includes source URL evidence for your client conversations.")
 
     
     if not api_key:
         st.error("Please provide a Tavily API key to begin research")
         return
     
-    # Initialize research agent
     try:
         agent = TavilyResearchAgent(api_key)
     except Exception as e:
@@ -438,7 +453,7 @@ def display_pain_point_analysis(analysis: Dict, detailed_results: List[Dict], ag
     """Display comprehensive analysis with focus on pain points and source evidence"""
     
     st.markdown("---")
-    st.header(f"📊 Pain Point Analysis Report: {analysis['company_name']}")
+    st.header(f"Pain Point Analysis Report: {analysis['company_name']}")
     
     # Key metrics with pain point focus
     st.subheader("Executive Summary")
@@ -454,45 +469,50 @@ def display_pain_point_analysis(analysis: Dict, detailed_results: List[Dict], ag
         services_count = len(analysis.get('potential_iNube_services', []))
         st.metric("Recommended Solutions", services_count)
     
-    # PAIN POINTS SECTION - This is the key new feature
+    # NEW: Client Potential Summary Section
     st.markdown("---")
-    st.header("🎯 Validated Pain Points with Source Evidence")
+    st.header("Client Potential Assessment")
+    
+    if analysis.get('client_potential_summary'):
+        st.info(analysis['client_potential_summary'])
+    else:
+        st.warning("No client potential assessment available.")
+    
+    # Pain Points Section
+    st.markdown("---")
+    st.header("Validated Pain Points with Source Evidence")
     
     pain_points = analysis.get('validated_pain_points', [])
     
     if not pain_points:
         st.warning("""
-        ⚠️ No validated pain points found with source evidence. This could mean:
+        No validated pain points found with source evidence. This could mean:
         - The company doesn't publicly discuss their challenges
         - The search didn't find specific pain point evidence
         - Try researching with different search terms or check if the company is publicly traded (more public information)
         """)
     else:
-        # Group pain points by category
         pain_point_groups = {}
         for pp in pain_points:
             if pp["pain_point_id"] not in pain_point_groups:
                 pain_point_groups[pp["pain_point_id"]] = []
             pain_point_groups[pp["pain_point_id"]].append(pp)
         
-        # Display each pain point category
         for pain_point_id, evidences in pain_point_groups.items():
-            with st.expander(f"🔍 {pain_point_id.replace('_', ' ').title()} - {len(evidences)} evidence source(s)", expanded=True):
+            with st.expander(f"{pain_point_id.replace('_', ' ').title()} - {len(evidences)} evidence source(s)", expanded=True):
                 
-                # Show iNube solutions for this pain point
                 if evidences[0]["iNube_solutions"]:
                     solutions = [s.replace('_', ' ').title() for s in evidences[0]["iNube_solutions"]]
-                    st.success(f"**iNube Solutions**: {', '.join(solutions)}")
+                    st.success(f"iNube Solutions: {', '.join(solutions)}")
                 
-                # Display each evidence source
                 for i, evidence in enumerate(evidences):
                     st.markdown(f"**Evidence #{i+1}**")
-                    st.markdown(f"*Source: [{evidence['source_title']}]({evidence['source_url']})*")
+                    st.markdown(f"Source: [{evidence['source_title']}]({evidence['source_url']})")
                     st.markdown(f"**Context**: {evidence['evidence']}")
-                    st.markdown(f"*Keyword identified: `{evidence['keyword_found']}`*")
+                    st.markdown(f"Keyword identified: {evidence['keyword_found']}")
                     st.markdown("---")
     
-    # Traditional analysis (keep existing functionality)
+    # Traditional analysis
     if detailed_results:
         st.markdown("---")
         st.subheader("Detailed Research Findings")
@@ -519,7 +539,6 @@ def display_pain_point_analysis(analysis: Dict, detailed_results: List[Dict], ag
         st.markdown("**Justification:**")
         st.info(analysis.get('fit_justification', 'No justification available'))
         
-        # Pain point analysis
         if analysis.get('pain_point_analysis'):
             st.markdown("**Pain Point Analysis:**")
             st.info(analysis['pain_point_analysis'])
@@ -540,18 +559,16 @@ def display_pain_point_analysis(analysis: Dict, detailed_results: List[Dict], ag
     sources = analysis.get('sources', [])
     if sources:
         for i, source in enumerate(sources):
-            st.markdown(f"{i+1}. **{source.get('title', 'No title')}** - {source.get('url', 'No URL')}")
+            st.markdown(f"{i+1}. {source.get('title', 'No title')} - {source.get('url', 'No URL')}")
     else:
         st.info("No sources available")
     
-    # Export functionality with pain points
+    # Export functionality
     st.markdown("---")
     st.subheader("Export Results")
     
-    # Create comprehensive export data
     export_data = []
     
-    # Add pain points to export
     for pp in pain_points:
         export_data.append({
             "Type": "Pain Point",
@@ -563,7 +580,6 @@ def display_pain_point_analysis(analysis: Dict, detailed_results: List[Dict], ag
             "Confidence": pp["confidence"]
         })
     
-    # Add company analysis to export
     export_data.append({
         "Type": "Company Analysis",
         "Category": "Overall Recommendation",
@@ -579,7 +595,7 @@ def display_pain_point_analysis(analysis: Dict, detailed_results: List[Dict], ag
         csv_data = export_df.to_csv(index=False)
         
         st.download_button(
-            label="📥 Download Pain Points Analysis CSV",
+            label="Download Pain Points Analysis CSV",
             data=csv_data,
             file_name=f"inube_pain_points_{analysis['company_name'].lower().replace(' ', '_')}.csv",
             mime="text/csv",
